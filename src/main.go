@@ -1,16 +1,21 @@
 // main.go
 
-// import folders that must have 
-// func implementetions for
-// requests
-import(
-	"net/http"
-	"github.com/julienschmidt/httprouter"
-)
-
 package main
 
-package func main() {
+/* 	
+	import folders that have func implementetions 
+	for requests
+ */
+
+import(
+	_ "fmt"
+	"net/http"
+	"github.com/julienschmidt/httprouter"
+	"./Controller"
+)
+
+
+func main() {
 	
 	r := httprouter.New()
 
@@ -18,18 +23,19 @@ package func main() {
 	handleURLS(r)
 
 // fire up server
-	http.ListenAndServe("8000" , r)
-
+	http.ListenAndServe(":8000" , r)
 }
 
 
-// Assigns functions to handle requests
-func handleURLS(r *httprouter){
+
+
+// Assign functions to handle requests
+func handleURLS(r *httprouter.Router){
+	c := controll.NewController()
+
 // 	GET
-// r.GET(<URL1> , <function>)
-	// ....
-	// ...
-	// . 
+	r.GET("/OnlineEditor/About" , c.About)
+	
 
 
 // 	POST
