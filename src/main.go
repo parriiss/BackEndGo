@@ -29,14 +29,13 @@ func main() {
 
 
 
-// Assigns functions to handle requests
+// Assign functions to handle requests
 func handleURLS(r *httprouter.Router){
 	c := controll.NewController()
 
 // 	GET
 	r.GET("/OnlineEditor/About" , c.About)
 	
-
 
 
 // 	POST

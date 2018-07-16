@@ -9,6 +9,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// controller for requests (methods)
 type Controller struct{}
 
 type Controll_Fun interface{
@@ -16,16 +17,32 @@ type Controll_Fun interface{
 	About(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
 } 
 
+
 func NewController() *Controller{
 	return  &Controller{}
 }
 
-	
+
+
+/*
+	get ID for Notepad?? 
+	to be implemented
+*/	
 func (c Controller)  Get_ID(w http.ResponseWriter ,
 	r *http.Request, p httprouter.Params){
 	// ??
 }
 
+
+/*
+	Gets a request from client for the about page
+	response json:
+		{	Lang	:	"Golang" 	}
+	http status:
+		200-->everything went fine  
+		500--> error in json.Marshal
+		
+*/
 func (c Controller) About(w http.ResponseWriter ,
 	r *http.Request, p httprouter.Params){
 	w.Header().Set("Access-Control-Allow-Origin","*")
