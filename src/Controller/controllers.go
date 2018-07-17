@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"github.com/julienschmidt/httprouter"
+	//"io/ioutil"
 )
 
 // controller for requests (methods)
@@ -15,7 +16,10 @@ type Controller struct{}
 type Controll_Fun interface{
 	Get_ID(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
 	About(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
+	LoadFile(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
 } 
+
+
 
 
 func NewController() *Controller{
@@ -43,6 +47,15 @@ func (c Controller)  Get_ID(w http.ResponseWriter ,
 		500--> error in json.Marshal
 		
 */
+func (c Controller) LoadFile(w http.ResponseWriter ,
+	r *http.Request, p httprouter.Params){
+	w.Header().Set("Access-Control-Allow-Origin","*")
+	w.Header().Set("Content-Type" , "application/json")
+	//file , err := ioutil.ReadFile("file.txt")
+	fmt.Println("hello")
+}
+
+
 func (c Controller) About(w http.ResponseWriter ,
 	r *http.Request, p httprouter.Params){
 	w.Header().Set("Access-Control-Allow-Origin","*")
