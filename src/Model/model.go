@@ -98,14 +98,3 @@ func delete_file(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 
 
 
-
-
-func main(){
-
-	router := httprouter.New()
-	router.POST("/",store_pad)
-
-	log.Fatal(http.ListenAndServe(":8080" ,router))
-
-}
-
