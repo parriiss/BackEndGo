@@ -7,7 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"github.com/julienschmidt/httprouter"
-	//"io/ioutil"
+	"BackEndGo/src/Pad"
+	"io/ioutil"
 )
 
 // controller for requests (methods)
@@ -47,12 +48,35 @@ func (c Controller)  Get_ID(w http.ResponseWriter ,
 		500--> error in json.Marshal
 		
 */
+
+
+/*
+ * 
+ * Return the file according to pad id
+ * */
 func (c Controller) LoadFile(w http.ResponseWriter ,
 	r *http.Request, p httprouter.Params){
+	
 	w.Header().Set("Access-Control-Allow-Origin","*")
 	w.Header().Set("Content-Type" , "application/json")
-	//file , err := ioutil.ReadFile("file.txt")
-	fmt.Println("hello")
+	//request
+	padRequest := Pad.PadRequest{}
+	json.NewDecoder(r.Body).Decode(&padRequest)
+	fmt.Println(padRequest)	
+    //answer
+    var pad Pad.Pad
+    file , err := ioutil.ReadFile("SavedFiles/"+padRequest.Id)
+	if err != nil {
+		//return error message
+		pad = Pad.Pad{"", "" , "File not exist"}
+    }else{
+		fileAsString := string(file)
+		//request in database for name
+		pad = Pad.Pad{padRequest.Id, "chris" , fileAsString}
+	}
+	jsonAnswer ,err := json.Marshal(pad)
+	fmt.Fprintf(w, "%s", jsonAnswer)
+	fmt.Println(string(jsonAnswer))
 }
 
 

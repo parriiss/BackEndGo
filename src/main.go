@@ -35,10 +35,11 @@ func handleURLS(r *httprouter.Router){
 
 // 	GET
 	r.GET("/OnlineEditor/About" , c.About)
-	r.GET("/LoadFile",c.LoadFile)
+	
 
 
 // 	POST
+	r.POST("/LoadFile",c.LoadFile)
 // r.POST(<URL1> , <function>)
 	// ....
 	// ...

@@ -1,20 +1,24 @@
-package main
+package Pad
 
 import (
-	"github.com/julienschmidt/httprouter"
-	"log"
-	"net/http"
-	"encoding/json"
-	"fmt"
+	//"fmt"
 )
 
+type PadRequest struct{
+	Id string `json:"id"`
+}
+
+
 type Pad struct{
-	ID string `json:"id"`
+	Id string `json:"id"`
 	Name string `json:"name"`
+	Value string `json:"value"`
 }
 var PadMap=make(map[string]*Pad)
 
 
+
+/*
 func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	fmt.Fprint(w,"Test1\n")
 
@@ -33,9 +37,9 @@ func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	fmt.Println(PadMap["zxc23"].ID)
 
 }
+*/
 
-
-
+/*
 func main(){
 
 	router := httprouter.New()
@@ -44,4 +48,4 @@ func main(){
 	log.Fatal(http.ListenAndServe(":8080" ,router))
 
 }
-
+*/
