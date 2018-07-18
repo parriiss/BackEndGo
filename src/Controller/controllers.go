@@ -19,7 +19,7 @@ package controll
 
 import (
 	"../model/Requests"
-	"../model"
+	"../model/pad_options"
 	"database/sql"
 	"encoding/json"
 	"fmt"
