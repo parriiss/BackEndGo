@@ -11,7 +11,7 @@ import(
 	_ "fmt"
 	"net/http"
 	"github.com/julienschmidt/httprouter"
-	"./Controller"
+	"BackEndGo/src/Controller"
 )
 
 
@@ -39,6 +39,7 @@ func handleURLS(r *httprouter.Router){
 
 
 // 	POST
+	r.POST("/LoadFile",c.LoadFile)
 // r.POST(<URL1> , <function>)
 	// ....
 	// ...
