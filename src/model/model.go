@@ -14,6 +14,14 @@ var (
 	err      error
 )
 
+
+type PadRequest struct{
+        Id string `json:"id"`
+}
+
+
+
+
 type Pad struct{
 	ID string `json:"id"`
 	Name string `json:"name"`
@@ -23,6 +31,13 @@ var PadMap=make(map[string]*Pad)
 
 func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	fmt.Fprint(w,"Test1\n")
+   db, err := sql.Open("mysql",
+                "root:root@tcp(localhost:3306)/test1")
+        if err != nil {
+                panic(err.Error())  // Just for example purpose. You should use proper error handling instead of panic
+        }
+        defer db.Close()
+
 
 	decoder := json.NewDecoder(r.Body)
 	var t Pad
@@ -40,6 +55,16 @@ func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	t.Name,
 
 	}
+
+ _,err = db.Exec("INSERT INTO filesMetaData (id,name) VALUES (%s,%s)",t.ID,t.Name)
+   if err != nil {
+       panic(err)
+   }
+
+
+
+
+
 	}
 
 	for k, v := range PadMap {
@@ -53,6 +78,13 @@ fmt.Printf("----------\n")
 
 func rename_file(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	fmt.Fprint(w,"Test1\n")
+db, err := sql.Open("mysql",
+                "root:root@tcp(localhost:3306)/test1")
+        if err != nil {
+                panic(err.Error())  // Just for example purpose. You should use proper error handling instead of panic
+        }
+        defer db.Close()
+
 
 	decoder := json.NewDecoder(r.Body)
 	var t Pad
@@ -69,6 +101,10 @@ func rename_file(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 			log.Fatal(err)
 		}*/
 		PadMap[t.ID].Name=t.Name
+ _,err = db.Exec("UPDATE set name=%s WHERE id=%s ",t.Name,t.ID)
+   if err != nil {
+       panic(err)
+   }
 
 	}else{
 		fmt.Println("File %s not found",t.ID)
