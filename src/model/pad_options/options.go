@@ -1,4 +1,4 @@
-package model
+package optionss
 
 import (
 	"github.com/julienschmidt/httprouter"
@@ -9,14 +9,33 @@ import (
 	"os"
        _ "github.com/go-sql-driver/mysql"
 	"database/sql"
+	"github.com/lucasjones/reggen"
+	"strconv"
 
 )
+type Pad struct{
+	ID string `json:"id"`
+	Name string `json:"name"`
+	Value string `json:"value"`
+}
 
+
+type Optionss_Fun interface {
+	StorePad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+	RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+	DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+	EmptyDocument(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+
+}
 var (
 	fileInfo *os.FileInfo
 	err      error
 )
 
+
+func NewPad() *Pad{
+	return  &Pad{}
+}
 
 type PadRequest struct{
         Id string `json:"id"`
@@ -24,66 +43,78 @@ type PadRequest struct{
 
 
 
+var i=0
 
-type Pad struct{
-	ID string `json:"id"`
-	Name string `json:"name"`
-	Value string `json:"value"`
-}
 var PadMap=make(map[string]*Pad)
 
 
-func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (p Pad) StorePad (w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+
 	fmt.Fprint(w,"Test1\n")
    db, err := sql.Open("mysql",
-                "root:root@tcp(localhost:3306)/test1")
+                "root:root@tcp(127.0.0.1:3306)/onlineEditor")
         if err != nil {
                 panic(err.Error())  // Just for example purpose. You should use proper error handling instead of panic
         }
         defer db.Close()
 
 
-	decoder := json.NewDecoder(r.Body)
-	var t Pad
-	err = decoder.Decode(&t)
-	if err != nil {
-		panic(err)
-	}
+	s:=strconv.Itoa(i)
+	s="Newpad"+s
 
-	if val,ok :=PadMap[t.ID]; ok {
-		fmt.Println("Found", val.Name)
+	for{
+		str, err2 := reggen.Generate("[a-f0-9]{16}", 16)
+		if err2 != nil {
+			panic(err2)
+		}
+		fmt.Println("AAAA",str)
+		if val,ok :=PadMap[str]; ok {
+			fmt.Println("Found",val.Name)
 
-	} else {
-	PadMap[t.ID]=&Pad{
-	t.ID,
-	t.Name,
-	"",
-	}
+		}else{
+			PadMap[str]=&Pad{
+				str,
+				s,
+				"",
+			}
+			f:="./SavedFiles/"+str+".txt"
+			os.Create(f)
 
- _,err = db.Exec("INSERT INTO filesMetaData (id,name) VALUES (%s,%s)",t.ID,t.Name)
-   if err != nil {
-       panic(err)
+			stmt,err := db.Prepare("INSERT INTO filesMetaData SET id=? , name=?")
+			if err != nil {
+				panic(err)
+
+		}
+			_, err = stmt.Exec(str, s)
+			if err != nil {
+					panic(err)
+			}
+
+			i=i+1
+			break;
+			}
+
+
    }
 
 
 
 
 
-	}
 
 	for k, v := range PadMap {
 		fmt.Printf("key[%s] value[%s]\n", k, v)
 	}
-fmt.Printf("----------\n")
 
+	fmt.Printf("----------\n")
 
 }
 
 
-func rename_file(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (p Pad) RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	fmt.Fprint(w,"Test1\n")
 db, err := sql.Open("mysql",
-                "root:root@tcp(localhost:3306)/test1")
+                "root:root@tcp(localhost:3306)/onlineEditor")
         if err != nil {
                 panic(err.Error())  // Just for example purpose. You should use proper error handling instead of panic
         }
@@ -105,7 +136,7 @@ db, err := sql.Open("mysql",
 			log.Fatal(err)
 		}*/
 		PadMap[t.ID].Name=t.Name
- _,err = db.Exec("UPDATE set name=%s WHERE id=%s ",t.Name,t.ID)
+ _,err = db.Exec("UPDATE set name=$1 WHERE id=$2 ",t.Name,t.ID)
    if err != nil {
        panic(err)
    }
@@ -115,7 +146,7 @@ db, err := sql.Open("mysql",
 	}
 }
 
-func delete_file(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (p Pad) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	decoder := json.NewDecoder(r.Body)
 	var t Pad
 	err := decoder.Decode(&t)
@@ -125,15 +156,36 @@ func delete_file(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 
 	if val,ok :=PadMap[t.ID]; ok {
 			fmt.Println("Delete", val.Name)
-		delete(PadMap,t.ID)
-		err := os.Remove(PadMap[t.ID].ID)
+		err := os.Remove("./SavedFiles/"+PadMap[t.ID].ID+".txt")
 		if err != nil {
 			log.Fatal(err)
 		}
+		delete(PadMap,t.ID)
+		
 
 	}else{
 		fmt.Println("File %s not found",t.ID)
 	}
+}
+
+func (p Pad) EmptyDocument(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+	decoder := json.NewDecoder(r.Body)
+	var t Pad
+	err := decoder.Decode(&t)
+	if err != nil {
+		panic(err)
+	}
+
+	if val,ok :=PadMap[t.ID]; ok {
+		fmt.Println("Empty Document : ", val.Name)
+		err := os.Truncate("./SavedFiles/"+PadMap[t.ID].ID+".txt", 0)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}else{
+		fmt.Println("File %s not found",t.ID)
+	}
+
 }
 
 

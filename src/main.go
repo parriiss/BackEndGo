@@ -22,6 +22,7 @@ package main
 import (
 	"./Controller"
 	"./model/Requests"
+	"./model/pad_options"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"net/http"
@@ -65,15 +66,18 @@ func main() {
 // Assign functions to handle requests
 func handleURLS(r *httprouter.Router) {
 	c := controll.NewController()
-
+	p := optionss.NewPad()
 	// 	GET
 	r.GET("/OnlineEditor/About", c.About)
 
-	
+		
 
 // 	POST
 	r.POST("/LoadFile",c.LoadFile)
 // r.POST(<URL1> , <function>)
+	r.POST("/NewPad",p.StorePad)
+	r.POST("/Delete",p.DeleteFile)
+	r.POST("/EmptyDocument",p.EmptyDocument)
 
 	// ....
 	// ...

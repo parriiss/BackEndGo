@@ -19,7 +19,6 @@ package controll
 
 import (
 	"../model/Requests"
-	"../model/pad_options"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -28,11 +27,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+	"../model/pad_options"
 )
 
 // controller for requests (methods)
 type Controller struct{}
-
 
 type Controll_Fun interface{
 	Get_ID(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
@@ -81,10 +80,10 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	errorFlag := false
 	errorMessage := ""
 	//request
-	padRequest := model.PadRequest{}
+	padRequest := optionss.PadRequest{}
 	json.NewDecoder(r.Body).Decode(&padRequest)
 	//answer
-	var pad model.Pad
+	var pad optionss.Pad
 	file, err := ioutil.ReadFile("SavedFiles/" + padRequest.Id)
 	if err != nil {
 		errorMessage = "File not exist"
@@ -109,7 +108,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 			errorMessage = "error db"
 			errorFlag = true
 		}
-		pad = model.Pad{padRequest.Id, fileName, fileAsString}
+		pad = optionss.Pad{padRequest.Id, fileName, fileAsString}
 		//insert in db info about user started session
 		//time format
 		logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
@@ -129,7 +128,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 		}
 	}
 	if errorFlag == true {
-		pad = model.Pad{"", "", errorMessage}
+		pad = optionss.Pad{"", "", errorMessage}
 	}
 	jsonAnswer, err := json.Marshal(pad)
 	w.WriteHeader(200)
