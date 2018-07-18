@@ -19,7 +19,7 @@ package controll
 
 import (
 	"../model/Requests"
-	"BackEndGo/src/Pad"
+	"../model"
 	"database/sql"
 	"encoding/json"
 	"fmt"

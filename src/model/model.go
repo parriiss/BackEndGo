@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"github.com/julienschmidt/httprouter"
@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+       _ "github.com/go-sql-driver/mysql"
+	"database/sql"
+
 )
 
 var (
@@ -41,7 +44,7 @@ func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 
 	decoder := json.NewDecoder(r.Body)
 	var t Pad
-	err := decoder.Decode(&t)
+	err = decoder.Decode(&t)
 	if err != nil {
 		panic(err)
 	}
@@ -88,7 +91,7 @@ db, err := sql.Open("mysql",
 
 	decoder := json.NewDecoder(r.Body)
 	var t Pad
-	err := decoder.Decode(&t)
+	err = decoder.Decode(&t)
 	if err != nil {
 		panic(err)
 	}
