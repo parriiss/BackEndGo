@@ -7,6 +7,7 @@ package main
 	for requests
 */
 
+
 /*
 	***IMPORTANT***
 	TODO:
@@ -25,6 +26,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"sync"
+	"BackEndGo/src/Controller"
+
 )
 
 
@@ -66,8 +69,12 @@ func handleURLS(r *httprouter.Router) {
 	// 	GET
 	r.GET("/OnlineEditor/About", c.About)
 
-	// 	POST
-	// r.POST(<URL1> , <function>)
+	
+
+// 	POST
+	r.POST("/LoadFile",c.LoadFile)
+// r.POST(<URL1> , <function>)
+
 	// ....
 	// ...
 	// .
@@ -83,8 +90,7 @@ func handleURLS(r *httprouter.Router) {
 	//	DELETE
 	// r.DELETE(<URL1> , <function>)
 	// ....
-	// ...
-	// .
+
 }
 
 
@@ -161,4 +167,5 @@ func serve_reqs() {
 		}/*End of Switch*/
 	} /*End of for*/
 	sliceMux.Unlock()
-}
+}  
+
