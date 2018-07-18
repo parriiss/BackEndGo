@@ -28,6 +28,7 @@ type PadRequest struct{
 type Pad struct{
 	ID string `json:"id"`
 	Name string `json:"name"`
+	Value string `json:"value"`
 }
 var PadMap=make(map[string]*Pad)
 
@@ -56,7 +57,7 @@ func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	PadMap[t.ID]=&Pad{
 	t.ID,
 	t.Name,
-
+	"",
 	}
 
  _,err = db.Exec("INSERT INTO filesMetaData (id,name) VALUES (%s,%s)",t.ID,t.Name)

@@ -81,10 +81,10 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	errorFlag := false
 	errorMessage := ""
 	//request
-	padRequest := Pad.PadRequest{}
+	padRequest := model.PadRequest{}
 	json.NewDecoder(r.Body).Decode(&padRequest)
 	//answer
-	var pad Pad.Pad
+	var pad model.Pad
 	file, err := ioutil.ReadFile("SavedFiles/" + padRequest.Id)
 	if err != nil {
 		errorMessage = "File not exist"
@@ -109,7 +109,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 			errorMessage = "error db"
 			errorFlag = true
 		}
-		pad = Pad.Pad{padRequest.Id, fileName, fileAsString}
+		pad = model.Pad{padRequest.Id, fileName, fileAsString}
 		//insert in db info about user started session
 		//time format
 		logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
@@ -129,7 +129,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 		}
 	}
 	if errorFlag == true {
-		pad = Pad.Pad{"", "", errorMessage}
+		pad = model.Pad{"", "", errorMessage}
 	}
 	jsonAnswer, err := json.Marshal(pad)
 	w.WriteHeader(200)
