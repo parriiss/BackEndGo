@@ -30,12 +30,13 @@ type Pad struct{
 	Name string `json:"name"`
 	Value string `json:"value"`
 }
+
 var PadMap=make(map[string]*Pad)
 
 
 func store_pad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	fmt.Fprint(w,"Test1\n")
-   db, err := sql.Open("mysql",
+   	db, err := sql.Open("mysql",
                 "root:root@tcp(localhost:3306)/test1")
         if err != nil {
                 panic(err.Error())  // Just for example purpose. You should use proper error handling instead of panic
