@@ -3,7 +3,7 @@
 package control
 
 /*
-	TODO:	
+	TODO:
 		~implement new notepad functionality
 
 		~implement editting functionality
@@ -15,9 +15,10 @@ package control
 			~dlt doc
 			~change doc tittle
 			~history of all people that viewed/editted doc
-*/		
+*/
 
 import (
+	"../model/PadHistory"
 	"../model/Requests"
 	"../model/pad_options"
 	"database/sql"
@@ -33,18 +34,42 @@ import (
 // controller for requests (methods)
 type Controller struct{}
 
-
-type Control_Fun interface{
-	About(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
+type Control_Fun interface {
+	About(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
- 	Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
- 	LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
-} 
-
-func NewController() *Controller{
-	return  &Controller{}
+	Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
+	LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
+	Get_ID(w http.ResponseWriter, r *http.Request, p httprouter.Params)
+	GetPadHistory(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 }
 
+func NewController() *Controller {
+	return &Controller{}
+}
+
+/*
+	get ID for Notepad??
+	to be implemented
+*/
+func (c Controller) Get_ID(w http.ResponseWriter,
+	r *http.Request, p httprouter.Params) {
+	// ??
+}
+
+/*
+	Gets a request from client for the about page
+	response json:
+		{	Lang	:	"Golang" 	}
+	http response header status:
+		200-->everything went fine
+		500-->error in json.Marshal
+
+	http status:
+		200-->everything went fine
+		500--> error in json.Marshal
+
+
+*/
 
 /*
  *
@@ -105,21 +130,81 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 			errorFlag = true
 		}
 	}
+	w.WriteHeader(200)
 	if errorFlag == true {
 		pad = model.Pad{"", "", errorMessage}
+		w.WriteHeader(500)
 	}
 	jsonAnswer, err := json.Marshal(pad)
-	w.WriteHeader(200)
+
 	fmt.Fprintf(w, "%s", jsonAnswer)
 }
 
+/*
+return the history of pad according to
+pad id
+//TODO: check if file exist in global map
+if not return 500 error
+*/
+func (c Controller) GetPadHistory(w http.ResponseWriter,
+	r *http.Request, p httprouter.Params) {
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+	errorFlag := false
+	//request
+	//take the pad id
+	padRequest := model.PadRequest{}
+	json.NewDecoder(r.Body).Decode(&padRequest)
+	//answer
+	//values of table historyFiles in DB
+	var (
+		id    string
+		state int
+		time  string
+		ip    string
+		//slice with all history values
+		history []PadHistory.PadHistory
+	)
+
+	//TODO check if exist the pad with this id
+
+	//connect to db
+	db, err := sql.Open("mysql", "root:useruseruser@/onlineEditor")
+	if err != nil {
+		errorFlag = true
+	}
+	//close th db
+	defer db.Close()
+
+	//query to db to take the history of pad
+	sqlStatement := `SELECT * FROM historyFiles WHERE id=?`
+	rows, err := db.Query(sqlStatement, padRequest.Id)
+	//iterate the results from query
+	for rows.Next() {
+		//read the values per row
+		err = rows.Scan(&ip, &id, &time, &state)
+		if err != nil {
+			errorFlag = true
+		}
+		//insert them to the slice
+		historyToInsert := PadHistory.PadHistory{ip, state, time}
+		history = append([]PadHistory.PadHistory{historyToInsert}, history...)
+	}
+	w.WriteHeader(200)
+	if errorFlag == true {
+		w.WriteHeader(500)
+	}
+	jsonAnswer, err := json.Marshal(history)
+	fmt.Fprintf(w, "%s", jsonAnswer)
+}
 
 /*
 	Gets a request from client for the about page
 	response json:
 		{	Lang	:	"Golang" 	}
 	http response header status:
-		200-->everything went fine  
+		200-->everything went fine
 		500-->error in json.Marshal
 
 	http status:
@@ -128,6 +213,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 
 
 */
+
 func (c Controller) About(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -150,9 +236,9 @@ func (c Controller) About(w http.ResponseWriter,
 
 /*
 	http response header status:
-		202-->request received for processing 
+		202-->request received for processing
 			not yet served
-		400-->error in json decoding or 
+		400-->error in json decoding or
 			other error checking
 */
 func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -175,10 +261,12 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	*/
 
 	t := Requests.Wr
-	if c_req.OffsetTo > 0 {	t = Requests.Ins	}
+	if c_req.OffsetTo > 0 {
+		t = Requests.Ins
+	}
 
 	s_req = Requests.Editor_req{
-		Req_date: c_req.Req_date,
+		Req_date:   c_req.Req_date,
 		Req_type:   t,
 		Val:        c_req.Val,
 		OffsetFrom: c_req.OffsetFrom,
@@ -192,10 +280,9 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 }
 
 /*
-	Empty Function to handle DELETE request when deletion is happenning at 
+	Empty Function to handle DELETE request when deletion is happenning at
 	Edit page
 */
 func (c Controller) Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 }
-
