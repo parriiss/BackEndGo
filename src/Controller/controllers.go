@@ -1,6 +1,6 @@
 // controllers.go
 
-package controll
+package control
 
 /*
 	TODO:	
@@ -34,40 +34,17 @@ import (
 type Controller struct{}
 
 
-type Controll_Fun interface{
-	Get_ID(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
+type Control_Fun interface{
 	About(w http.ResponseWriter ,r *http.Request, p httprouter.Params)
 	Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
-  LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
+ 	Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
+ 	LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 } 
 
 func NewController() *Controller{
 	return  &Controller{}
 }
 
-/*
-	get ID for Notepad??
-	to be implemented
-*/
-func (c Controller) Get_ID(w http.ResponseWriter,
-	r *http.Request, p httprouter.Params) {
-	// ??
-}
-
-/*
-	Gets a request from client for the about page
-	response json:
-		{	Lang	:	"Golang" 	}
-	http response header status:
-		200-->everything went fine  
-		500-->error in json.Marshal
-
-	http status:
-		200-->everything went fine
-		500--> error in json.Marshal
-
-
-*/
 
 /*
  *
@@ -136,6 +113,21 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	fmt.Fprintf(w, "%s", jsonAnswer)
 }
 
+
+/*
+	Gets a request from client for the about page
+	response json:
+		{	Lang	:	"Golang" 	}
+	http response header status:
+		200-->everything went fine  
+		500-->error in json.Marshal
+
+	http status:
+		200-->everything went fine
+		500--> error in json.Marshal
+
+
+*/
 func (c Controller) About(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -198,3 +190,12 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 
 	w.WriteHeader(202)
 }
+
+/*
+	Empty Function to handle DELETE request when deletion is happenning at 
+	Edit page
+*/
+func (c Controller) Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+}
+

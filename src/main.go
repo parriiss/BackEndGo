@@ -26,8 +26,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"sync"
-	
-
+	"sort"
 )
 
 
@@ -35,7 +34,7 @@ import (
 var Saved_requests []Requests.Editor_req
 
 var can_write_to_file sync.Mutex
-var sliceMux sync.Mutex
+var SavedReq_Mux sync.Mutex
 
 func main() {
 
@@ -62,33 +61,37 @@ func main() {
 }
 
 
-// Assign functions to handle requests
+
+/*
+	Assign functions to handle requests	
+	~maybe URLS need to change??
+*/
 func handleURLS(r *httprouter.Router) {
-	c := controll.NewController()
+	c := control.NewController()
 
 	// 	GET
 	r.GET("/OnlineEditor/About", c.About)
 
 	
 
-// 	POST
+	// 	POST
+	// r.POST(<URL1> , <function>)
 	r.POST("/LoadFile",c.LoadFile)
-// r.POST(<URL1> , <function>)
 
 	// ....
 	// ...
 	// .
 
 	// 	PUT
-	r.PUT("/", c.Upd_PUT)
-
 	// r.PUT(<URL1> , <function>)
+	r.PUT("/Edit", c.Upd_PUT)
 	// ....
 	// ...
 	// .
 
 	//	DELETE
 	// r.DELETE(<URL1> , <function>)
+	r.DELETE("/Edit", c.Upd_DLT)
 	// ....
 
 }
@@ -108,7 +111,9 @@ func Handle_Requests() {
 	for {
 		r, ok := <-Requests.In
 		if ok {
+			SavedReq_Mux.Lock()
 			Saved_requests = append(Saved_requests , r)
+			SavedReq_Mux.Unlock()
 			// right request has arrived
 		}
 		/*
@@ -126,14 +131,34 @@ func Handle_Requests() {
 func serve_reqs() {
 
 	/*
-		***IMPORTANT***
-		The Saved requests must be sorted in order 
-		to write each to file in the correct order
+		TODO:
+			***IMPORTANT***
+			
+			~Changes in file should be boadcasted to every
+				user connected to the editted notepad
+
 	*/
 
 	// unecessary if only one go Hanlde_Requests is called
 	// unlocks access to Saved_Requests for serving
-	sliceMux.Lock()
+	SavedReq_Mux.Lock()
+
+	/*
+	Either:
+ 		another serve_reqs called from handle routinr
+ 			has emptied slice and unlocked mutex
+	OR
+		no requests have arrived
+	*/
+	if len(Saved_requests) == 0{
+		SavedReq_Mux.Unlock()
+		return
+	}
+
+	// sort requests by time they were created so 
+	// editing in files can be done in the right order
+	sort.Sort(Requests.Oldest_First(Saved_requests))
+
 	// if request that I'm expecting is saved
 	//  possible to have multiple out of order
 	for _, v := range Saved_requests{
@@ -166,6 +191,6 @@ func serve_reqs() {
 				fmt.Println("Unknown req, in serve reqs: ",v.Req_type)
 		}/*End of Switch*/
 	} /*End of for*/
-	sliceMux.Unlock()
+	SavedReq_Mux.Unlock()
 }  
 
