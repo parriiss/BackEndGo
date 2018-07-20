@@ -26,6 +26,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"sync"
+	"time"
 	"sort"
 )
 
@@ -107,8 +108,11 @@ func handleURLS(r *httprouter.Router) {
 	write into file serverside
 */
 func Handle_Requests() {
+	var next_upd time.Time
 	// run while server is UP
 	for {
+		// update files after 5 secs
+		next_upd = time.Now().Add(addDur(0, 0, 5))
 		r, ok := <-Requests.In
 		if ok {
 			SavedReq_Mux.Lock()
@@ -116,11 +120,15 @@ func Handle_Requests() {
 			SavedReq_Mux.Unlock()
 			// right request has arrived
 		}
+
 		/*
-			***IMPORTANT***
-			Here a timer check must be implemented so periodically
-			requests (characters) are written to file...
+			Timer to update files after 5secs
 		*/
+		if next_upd.After(time.Now()){
+			// next update will come after 5secs
+			next_upd = time.Now().Add(addDur(0, 0, 5))
+			serve_reqs()
+		}
 
 	}
 }
@@ -134,18 +142,19 @@ func serve_reqs() {
 		TODO:
 			***IMPORTANT***
 			
-			~Changes in file should be boadcasted to every
+			~Changes in file should be broadcasted to every
 				user connected to the editted notepad
+				(broadcast AFTER files changed)
 
 	*/
 
-	// unecessary if only one go Hanlde_Requests is called
+	// unecessary if only one Hanlde_Requests routine is called
 	// unlocks access to Saved_Requests for serving
 	SavedReq_Mux.Lock()
 
 	/*
 	Either:
- 		another serve_reqs called from handle routinr
+ 		another serve_reqs called from handle routine
  			has emptied slice and unlocked mutex
 	OR
 		no requests have arrived
@@ -194,3 +203,8 @@ func serve_reqs() {
 	SavedReq_Mux.Unlock()
 }  
 
+
+func addDur(h,m,s int) (time.Duration){
+	return time.Hour * time.Duration(h) + time.Minute * time.Duration(m) +
+		time.Second * time.Duration(s)
+}
