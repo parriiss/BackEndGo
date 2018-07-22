@@ -13,6 +13,7 @@ const (
 	Wr  put_req = "wr"
 )
 
+// struct for decoding PUT request json from client   
 type Client_Put struct {
 	// for out-of-order requests
 	Req_date time.Time 	`json:"Req_date"`
@@ -25,8 +26,12 @@ type Client_Put struct {
 
 	// offset for end-of-insert/end-of-delete
 	OffsetTo int 		`json:"End"`
+
+	// notepadID request is referring to
+	Notepad_ID string	`json:Pad_ID`
 }
 
+// struct for decoding DELETE  request json from client   
 type Client_Dlt struct {
 	// for out-of-order requests
 	Req_date time.Time 	`json:"Req_date"`
@@ -36,9 +41,12 @@ type Client_Dlt struct {
 
 	// offset for end-of-insert/end-of-delete
 	OffsetTo int 		`json:"End"`
+
+	// notepadID request is referring to
+	Notepad_ID string	`json:Pad_ID`
 }
 
-// struct for decoding JSON from client
+// struct for using client JSON for server use 
 type Editor_req struct {
 	// for out-of-order requests
 	Req_date time.Time
@@ -57,7 +65,22 @@ type Editor_req struct {
 	// offset for end-of-insert/end-of-delete
 	// negative vals??
 	OffsetTo int
+
+	// notepadID request is referring to
+	Notepad_ID string
+
+	// user Ip address
+	UserIp	string
 }
+
+type Oldest_First []Editor_req
+
+func (reqs Oldest_First) Len() int { return len(reqs) }
+func (reqs Oldest_First) Swap(i,j int) { reqs[i] , reqs[j] = reqs[j] ,reqs[i] }
+func (reqs Oldest_First) Less(i,j int) bool {
+	return reqs[j].Req_date.Before(reqs[i].Req_date)
+}
+
 
 // channel for parsing req to req handling routine
 var In chan Editor_req = make(chan Editor_req)
