@@ -322,7 +322,7 @@ var i=0
 var PadMap=make(map[string]*Pad)
 
 
-func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ httprouter.Params) int{
+func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ httprouter.Params) {
 
 	fmt.Fprint(w,"CreateNewPad\n")
    db, err := sql.Open("mysql",
@@ -372,7 +372,6 @@ func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ http
 			i=i+1
 			break;
 			}
-return str;
 
    }
 
