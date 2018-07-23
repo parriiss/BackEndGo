@@ -19,20 +19,19 @@ package control
 
 import (
 	"../model/PadHistory"
+	"../model/Pad_info"
 	"../model/Requests"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
+	"github.com/lucasjones/reggen"
 	"io/ioutil"
 	"net/http"
-	"time"
 	"os"
-	"../model/Pad_info"
 	"strconv"
-	"github.com/lucasjones/reggen"
-	
+	"time"
 )
 
 // controller for requests (methods)
@@ -45,10 +44,10 @@ type Control_Fun interface {
 	LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	Get_ID(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	GetPadHistory(w http.ResponseWriter, r *http.Request, p httprouter.Params)
-	CreateNewPad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
-	RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
-	DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
-	EmptyDocument(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+	CreateNewPad(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
+	RenameFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
+	DeleteFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
+	EmptyDocument(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 }
 
 var (
@@ -60,33 +59,26 @@ func NewController() *Controller {
 	return &Controller{}
 }
 
-/*
-	get ID for Notepad??
-	to be implemented
-*/
-func (c Controller) Get_ID(w http.ResponseWriter,
-	r *http.Request, p httprouter.Params) {
-	// ??
+// struct for parsing client request
+type PadRequest struct {
+	Id string `json:"id"`
 }
 
 /*
-	Gets a request from client for the about page
-	response json:
-		{	Lang	:	"Golang" 	}
-	http response header status:
-		200-->everything went fine
-		500-->error in json.Marshal
-
-	http status:
-		200-->everything went fine
-		500--> error in json.Marshal
-
-
+function that takes a pad id and return the content of the current pad
+If the pad dont exist it return an empty string and an error
+if the pad exist but it is empty return an empty string and a nil error
+otherwise return nil error and the content
 */
+func (c Controller) LoadPadFromFile(padId string) (string, error) {
+	file, err := ioutil.ReadFile("SavedFiles/" + padId)
+	if err != nil {
+		return "", err
+	}
+	fileAsString := string(file)
+	return fileAsString, err
+}
 
-
-// struct for parsing client request
-type PadRequest struct{        Id string `json:"id"`	}
 /*
  * Return the info and value of padFile according to pad id
  */
@@ -102,12 +94,11 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	json.NewDecoder(r.Body).Decode(&padRequest)
 	//answer
 	var pad Pad.Pad_info
-	file, err := ioutil.ReadFile("SavedFiles/" + padRequest.Id)
+	fileAsString, err := c.LoadPadFromFile(padRequest.Id)
 	if err != nil {
 		errorMessage = "File not exist"
 		errorFlag = true
 	} else {
-		fileAsString := string(file)
 		//request in database for name
 		db, err := sql.Open("mysql", "root:useruseruser@/onlineEditor")
 		if err != nil {
@@ -151,7 +142,6 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 		w.WriteHeader(500)
 	}
 	jsonAnswer, err := json.Marshal(pad)
-
 	fmt.Fprintf(w, "%s", jsonAnswer)
 }
 
@@ -167,7 +157,7 @@ func (c Controller) GetPadHistory(w http.ResponseWriter,
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	errorFlag := false
-	
+
 	//request
 	//take the pad id
 	padRequest := PadRequest{}
@@ -298,24 +288,22 @@ func (c Controller) Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter
 
 }
 
-
 var pad_num = 0
 
 var PadMap = make(map[string]*Pad.Pad_info)
 
-
 /*
 	TODO:
-		~Add documentation, return values and description 
+		~Add documentation, return values and description
 */
-func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type","application/json")
+	w.Header().Set("Content-Type", "application/json")
 
 	// fmt.Fprint(w,"CreateNewPad\n")
 
-	s:=strconv.Itoa(pad_num)
-	s="Newpad"+s
+	s := strconv.Itoa(pad_num)
+	s = "Newpad" + s
 
 	str, er := generate_Pad_Name()
 
@@ -329,79 +317,76 @@ func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ http
 
 	// increment pad name int for next pad creation
 	pad_num++
-	
 
-	PadMap[str] = &Pad.Pad_info{str, s, "", }
+	PadMap[str] = &Pad.Pad_info{str, s, ""}
 
-	f:="./SavedFiles/"+str+".txt"
-	_,er = os.Create(f)
+	f := "./SavedFiles/" + str + ".txt"
+	_, er = os.Create(f)
 	if er != nil {
 		// could not create file in server
 		w.WriteHeader(500)
 		fmt.Println("----------\n", er)
-		
-		// delete from map pad that could not create 
+
+		// delete from map pad that could not create
 		// and reduce counter for name creation
 		pad_num--
-		delete(PadMap , str)
+		delete(PadMap, str)
 		return
 	}
 
 	/*
-		insertion to pad must be last thing that is done at 
+		insertion to pad must be last thing that is done at
 		pad creation because if an error occurs after
 		another cpnnection to db must be made so that
-		record of pad must be deleted 
+		record of pad must be deleted
 	*/
 	er = insert_padID_to_db(str, s)
 	if er != nil {
 		// return internal error status at client
 		// db.Open or db.Prepare or Exec returned error
 		// couldn't insert to database
-		
-		// delete from map pad that could not insert to db 
+
+		// delete from map pad that could not insert to db
 		// and reduce counter for name creation
 		pad_num--
-		delete(PadMap , str)
+		delete(PadMap, str)
 
 		// delete file at server of pad that could not insert to db
-		if er2 := os.Remove(f); er2 != nil{
+		if er2 := os.Remove(f); er2 != nil {
 			fmt.Println("----------\n", er2)
 		}
-
 		w.WriteHeader(500)
 		fmt.Println("----------\n", er)
 		return
 	}
 
-	
 	// pad created, return created status at client
 	w.WriteHeader(204)
 
 	// return to client pad that was created
 	uj := json.NewEncoder(w).Encode(PadMap[str])
-	fmt.Fprintf(w,"%s", uj)
+	fmt.Fprintf(w, "%s", uj)
 
-	// print_padMap()	
+	// print_padMap()
 }
 
-func print_padMap(){
+func print_padMap() {
 	for k, v := range PadMap {
-			fmt.Printf("key[%s] value[%s]\n", k, v)
+		fmt.Printf("key[%s] value[%s]\n", k, v)
 	}
 }
 
 /*
 	Generates new unique id for pad
 */
-func generate_Pad_Name() (str string, er error){
+func generate_Pad_Name() (str string, er error) {
 	for {
 		str, er = reggen.Generate("[a-f0-9]{16}", 16)
 		if er != nil {
 			// return error
 			return
 		}
-		if _,ok :=PadMap[str]; !ok {
+		if _, ok := PadMap[str]; !ok {
 			// new pad ID created
 			return
 		}
@@ -411,69 +396,71 @@ func generate_Pad_Name() (str string, er error){
 	}
 }
 
-
 /*
 	Insert new pad Id to db
 */
-func insert_padID_to_db(id ,name string) (er error){
-	db, er := sql.Open("mysql","root:root@tcp(127.0.0.1:3306)/onlineEditor")
+func insert_padID_to_db(id, name string) (er error) {
+	db, er := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/onlineEditor")
 	defer db.Close()
-	
-	stmt,er := db.Prepare("INSERT INTO filesMetaData SET id=? , name=?")
-	if er != nil{
-	   return 
+
+	stmt, er := db.Prepare("INSERT INTO filesMetaData SET id=? , name=?")
+	if er != nil {
+		return
 	}
-	
+
 	_, er = stmt.Exec(id, name)
-	
+
 	return
 }
 
 /*
 	TODO:
-		~Add documentation, return values and description 
+		~Add documentation, return values and description
 */
-func (c Controller) RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (c Controller) RenameFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// fmt.Fprint(w,"RenameFile\n")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type","application/json")
-	
+	w.Header().Set("Content-Type", "application/json")
 
 	var t Pad.Pad_info
 	err = json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {
-		// could not decode json received 
+		// could not decode json received
 		// return status bad request
 		w.WriteHeader(400)
 		return
 	}
 
-	if val,ok :=PadMap[t.ID]; ok {
+	if val, ok := PadMap[t.ID]; ok {
 		fmt.Println("Found", val.Name)
 		val.Name = t.Name
 
-		if err = update_filename_atDb(t.ID, t.Name); err!=nil{
+		if err = update_filename_atDb(t.ID, t.Name); err != nil {
 			w.WriteHeader(500)
 			fmt.Println("----------\n", err)
-			return			
+			return
 		}
 
 		// update value of map if no error has happened
 		PadMap[t.ID] = val
-	}else{
-		fmt.Println("File %s not found",t.ID)
+	} else {
+		fmt.Println("File %s not found", t.ID)
 		w.WriteHeader(400)
 		return
 	}
 }
 
 func update_filename_atDb(padId, newName string) (err error) {
-	db, err := sql.Open("mysql","root:root@tcp(localhost:3306)/onlineEditor")
-	if err != nil { return }	
-        	defer db.Close()
+	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/onlineEditor")
+	if err != nil {
+		return
+	}
+	defer db.Close()
 
-	stmt,err := db.Prepare("UPDATE filesMetaData SET name=? WHERE id=? ")
-	if err != nil { return }
+	stmt, err := db.Prepare("UPDATE filesMetaData SET name=? WHERE id=? ")
+	if err != nil {
+		return
+	}
 
 	_, err = stmt.Exec(newName, padId)
 
@@ -482,27 +469,25 @@ func update_filename_atDb(padId, newName string) (err error) {
 
 /*
 	TODO:
-		~Add documentation, return values and description 
+		~Add documentation, return values and description
 */
-func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (c Controller) DeleteFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// fmt.Fprint(w,"DeleteFile\n")
 
 	var t Pad.Pad_info
 
-	
 	err = json.NewDecoder(r.Body).Decode(&t)
 	defer r.Body.Close()
-
 	if err != nil {
 
 		// bad json from client, could not decode
-		// return bad request status 
+		// return bad request status
 		w.WriteHeader(400)
 		return
 	}
 
-	if val,ok :=PadMap[t.ID]; ok {
-		
+	if val, ok := PadMap[t.ID]; ok {
+
 		fmt.Println("Delete", val.Name)
 		/*
 			TODO:
@@ -511,39 +496,42 @@ func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprou
 					that you can go back to and not
 					remove file
 		*/
-		err := os.Remove("./SavedFiles/"+PadMap[t.ID].ID+".txt")
+		err := os.Remove("./SavedFiles/" + PadMap[t.ID].ID + ".txt")
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Println("----------\n", err)
-			return			
+			return
 		}
-		
 		deletePad_fromDb(t.ID)
-   		if err != nil {
+		if err != nil {
 			/*
 				TODO:
 					~if error happens at database connection recover deleted file
-   			*/
+			*/
 
-   			w.WriteHeader(500)
+			w.WriteHeader(500)
 			fmt.Println("----------\n", err)
-			return			
-   		}
-		
-		// almost impossible for an erro to happen here 
-		delete(PadMap,t.ID)
-	}else{
-		fmt.Println("File %s not found",t.ID)
+			return
+		}
+
+		// almost impossible for an erro to happen here
+		delete(PadMap, t.ID)
+	} else {
+		fmt.Println("File %s not found", t.ID)
 	}
 }
 
 func deletePad_fromDb(padID string) (err error) {
-	db, err := sql.Open("mysql","root:root@tcp(localhost:3306)/onlineEditor")
-	if err != nil { return }
+	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/onlineEditor")
+	if err != nil {
+		return
+	}
 	defer db.Close()
-	
-	stmt,err := db.Prepare("DELETE FROM filesMetaData where id=? ")
-	if err != nil { return }
+
+	stmt, err := db.Prepare("DELETE FROM filesMetaData where id=? ")
+	if err != nil {
+		return
+	}
 
 	_, err = stmt.Exec(padID)
 	return
@@ -551,14 +539,14 @@ func deletePad_fromDb(padID string) (err error) {
 
 /*
 	TODO:
-		~Add documentation, return values and description 
-		~Return better 400 errors to clien so it can know if 
-			server could not find file or decode json 
+		~Add documentation, return values and description
+		~Return better 400 errors to clien so it can know if
+			server could not find file or decode json
 */
-func (c Controller) EmptyDocument(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	var t Pad.Pad_info
-	err :=  json.NewDecoder(r.Body).Decode(&t)
+	err := json.NewDecoder(r.Body).Decode(&t)
 	defer r.Body.Close()
 	if err != nil {
 		//  bad request, could not decode json
@@ -566,21 +554,17 @@ func (c Controller) EmptyDocument(w http.ResponseWriter ,r *http.Request, _ http
 		return
 	}
 
-	if val,ok :=PadMap[t.ID]; ok {
+	if val, ok := PadMap[t.ID]; ok {
 		fmt.Println("Empty Document : ", val.Name)
 		err := os.Truncate("./SavedFiles/"+PadMap[t.ID].ID+".txt", 0)
 		if err != nil {
-
 			w.WriteHeader(500)
-			fmt.Fprintf(w,"%s",err)
+			fmt.Fprintf(w, "%s", err)
 		}
-	}else{
-		fmt.Println("File %s not found",t.ID)
+	} else {
+		fmt.Println("File %s not found", t.ID)
 		//  bad request, could find requested file
 		w.WriteHeader(400)
-
 	}
 
 }
-
-
