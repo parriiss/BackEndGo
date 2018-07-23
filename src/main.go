@@ -16,6 +16,8 @@ package main
 		~need to keep content of notepad in file
 		~need to setup sql for metadata
 		~define all model structs
+		~make struct that holds users connected to pad and pad contents 
+		~keep slice of open notepads
 */
 
 import (
@@ -92,9 +94,24 @@ func handleURLS(r *httprouter.Router) {
 
 }
 
-/*
-	this is supposed to act as a go routine
-	running in the background receiving requests
+/* 
+	***IMPORTANT***
+	Can change edition policy:
+		Requests edit notepad contents which is
+		a string kept while connection with client is open
+		
+		Each requst modifies notepad contents' string
+		at the end of a back-end-defined period contents
+		are written to disk (? mins). Also Contents are 
+		written to disk (flush) at timeout/logout.
+				-----OR-----
+		Can keep contents in mem and save file when 
+		user asks (more front end work) probably not
+		gonna do that.
+
+
+	This is supposed to act as a go routine
+	running in the background receiving requests 
 	through the in channel,
 
 	saves them and periodically(5sec, not many words can be written hence can be
