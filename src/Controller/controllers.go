@@ -43,7 +43,6 @@ type Control_Fun interface {
 	Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
-	Get_ID(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	GetPadHistory(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	CreateNewPad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
 	RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
@@ -59,30 +58,6 @@ var (
 func NewController() *Controller {
 	return &Controller{}
 }
-
-/*
-	get ID for Notepad??
-	to be implemented
-*/
-func (c Controller) Get_ID(w http.ResponseWriter,
-	r *http.Request, p httprouter.Params) {
-	// ??
-}
-
-/*
-	Gets a request from client for the about page
-	response json:
-		{	Lang	:	"Golang" 	}
-	http response header status:
-		200-->everything went fine
-		500-->error in json.Marshal
-
-	http status:
-		200-->everything went fine
-		500--> error in json.Marshal
-
-
-*/
 
 
 // struct for parsing client request
