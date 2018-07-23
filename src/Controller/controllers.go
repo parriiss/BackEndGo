@@ -18,6 +18,7 @@ package control
 */
 
 import (
+	"../model/LogedInUsers"
 	"../model/PadHistory"
 	"../model/Pad_info"
 	"../model/Requests"
@@ -142,6 +143,9 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	if errorFlag == true {
 		pad = Pad.Pad_info{"", "", errorMessage, false}
 		w.WriteHeader(500)
+	} else {
+		userIp := string(r.RemoteAddr)
+		LogedInUsers.InsertUserIp(userIp, padRequest.Id)
 	}
 	jsonAnswer, err := json.Marshal(pad)
 	fmt.Fprintf(w, "%s", jsonAnswer)
