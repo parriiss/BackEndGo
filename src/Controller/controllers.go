@@ -530,29 +530,11 @@ func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprou
 
 	recPath:="./"+t.ID+"-Backup"+".txt"
 	originalPath:="./SavedFiles/"+PadMap[t.ID].ID+".txt"
-	newFile,err := os.Create(recPath)	
-	if err!=nil {
-		w.WriteHeader(500)
-		return
-	}
-	defer newFile.Close()
-	originalFile,err:=os.Open(originalPath)
-	if err!=nil {
-                w.WriteHeader(500)
-                return
-        }
-
-	bytesWritten,err := io.Copy(newFile,originalFile)
-	if err!=nil {
-                w.WriteHeader(500)
-                return
-        }
-	fmt.Println("Copied %d bytes",bytesWritten)
-	err = newFile.Sync()
-	if err!=nil {
-                w.WriteHeader(500)
-                return
-        }
+	CreateBackupFile(originalPath,recPath)
+		if err!=nil {
+                	w.WriteHeader(500)
+                	return
+               	}
 		
 		
 		err = os.Remove(originalPath)
@@ -582,11 +564,62 @@ func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprou
 			return			
    		}
 		
+		RemoveBackupFile(recPath)
+			if err!=nil {
+                		w.WriteHeader(500)
+                		return
+        		}
 		// almost impossible for an erro to happen here 
 		delete(PadMap,t.ID)
 	}else{
 		fmt.Println("File %s not found",t.ID)
 	}
+}
+/*
+Gets the original path of a file and creates a new file wih the contents of the original one as backup
+ Returns err if occurs one
+*/
+func CreateBackupFile(originalPath string,backupPath string)(err error){
+
+newFile,err := os.Create(backupPath)	
+	if err!=nil {
+
+		return 
+	}
+	defer newFile.Close()
+	originalFile,err:=os.Open(originalPath)
+	if err!=nil {
+
+                return 
+        }
+
+	bytesWritten,err := io.Copy(newFile,originalFile)
+	if err!=nil {
+
+                return
+        }
+	fmt.Println("Copied %d bytes",bytesWritten)
+	err = newFile.Sync()
+	if err!=nil {
+
+                return
+        }
+
+
+return
+}
+
+/*
+Gets the path of a backup File and it removes it only in case we dont need it anymore.
+Returns err if occurs one
+*/
+func RemoveBackupFile(backupPath string)(err error){
+		err = os.Remove(backupPath)
+		if err!=nil {
+
+                return
+        }
+return
 }
 
 func deletePad_fromDb(padID string) (err error) {
