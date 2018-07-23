@@ -323,6 +323,7 @@ var PadMap=make(map[string]*Pad)
 
 
 func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ httprouter.Params) {
+w.Header().Set("Content-Type","application/json")
 
 	fmt.Fprint(w,"CreateNewPad\n")
    db, err := sql.Open("mysql",
@@ -371,7 +372,11 @@ func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ http
 
 			i=i+1
 			break;
-			}
+	
+		}
+
+		w.WriteHeader(http.StatusCreated)
+json.NewEncoder(w).Encode(Pad{str,s,""})
 
    }
 
