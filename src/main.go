@@ -94,8 +94,6 @@ func handleURLS(r *httprouter.Router) {
 
 }
 
-<<<<<<< HEAD
-
 /* 
 	***IMPORTANT***
 	Can change edition policy:
@@ -114,11 +112,6 @@ func handleURLS(r *httprouter.Router) {
 
 	This is supposed to act as a go routine
 	running in the background receiving requests 
-=======
-/*
-	this is supposed to act as a go routine
-	running in the background receiving requests
->>>>>>> 24e85a428043f43777e89af6b2e38ca6044205c1
 	through the in channel,
 
 	saves them and periodically(5sec, not many words can be written hence can be
