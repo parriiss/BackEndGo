@@ -20,7 +20,6 @@ package control
 import (
 	"../model/PadHistory"
 	"../model/Requests"
-	"../model/pad_options"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -29,6 +28,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+	"os"
+	"BackEndGo/src/model/pad_options"
+	"strconv"
+	"github.com/lucasjones/reggen"
+	
 )
 
 // controller for requests (methods)
@@ -41,7 +45,16 @@ type Control_Fun interface {
 	LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	Get_ID(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	GetPadHistory(w http.ResponseWriter, r *http.Request, p httprouter.Params)
+	CreateNewPad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+	RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+	DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
+	EmptyDocument(w http.ResponseWriter ,r *http.Request, _ httprouter.Params)
 }
+
+var (
+	fileInfo *os.FileInfo
+	err      error
+)
 
 func NewController() *Controller {
 	return &Controller{}
@@ -83,10 +96,10 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	errorFlag := false
 	errorMessage := ""
 	//request
-	padRequest := model.PadRequest{}
+	padRequest := PadRequest{}
 	json.NewDecoder(r.Body).Decode(&padRequest)
 	//answer
-	var pad model.Pad
+	var pad Pad
 	file, err := ioutil.ReadFile("SavedFiles/" + padRequest.Id)
 	if err != nil {
 		errorMessage = "File not exist"
@@ -111,7 +124,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 			errorMessage = "error db"
 			errorFlag = true
 		}
-		pad = model.Pad{padRequest.Id, fileName, fileAsString}
+		pad = Pad{padRequest.Id, fileName, fileAsString}
 		//insert in db info about user started session
 		//time format
 		logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
@@ -132,7 +145,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	}
 	w.WriteHeader(200)
 	if errorFlag == true {
-		pad = model.Pad{"", "", errorMessage}
+		pad = Pad{"", "", errorMessage}
 		w.WriteHeader(500)
 	}
 	jsonAnswer, err := json.Marshal(pad)
@@ -286,3 +299,208 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 func (c Controller) Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 }
+
+//----------------------Options for Pad---NewPad(StorePad),Delete,Rename,EmptyDocument---------------------------
+type Pad struct{
+	ID string `json:"id"`
+	Name string `json:"name"`
+	Value string `json:"value"`
+}
+
+func NewPad() *Pad{
+	return  &Pad{}
+}
+
+type PadRequest struct{
+        Id string `json:"id"`
+}
+
+
+
+var i=0
+
+var PadMap=make(map[string]*Pad)
+
+
+func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ httprouter.Params) {
+w.Header().Set("Content-Type","application/json")
+
+	fmt.Fprint(w,"CreateNewPad\n")
+   db, err := sql.Open("mysql",
+                "root:root@tcp(127.0.0.1:3306)/onlineEditor")
+	w.WriteHeader(201)
+        if err != nil {
+                //panic(err.Error())  // Just for example purpose. You should use proper error handling instead of panic
+		w.WriteHeader(500)
+        }
+        defer db.Close()
+
+
+	s:=strconv.Itoa(i)
+	s="Newpad"+s
+
+	for{
+		str, err2 := reggen.Generate("[a-f0-9]{16}", 16)
+		if err2 != nil {
+			//panic(err2)
+			w.WriteHeader(500)
+		}
+		
+		if val,ok :=PadMap[str]; ok {
+			fmt.Println("	Found",val.Name)
+
+		}else{
+			PadMap[str]=&Pad{
+				str,
+				s,
+				"",
+			}
+			f:="./SavedFiles/"+str+".txt"
+			os.Create(f)
+
+			stmt,err := db.Prepare("INSERT INTO filesMetaData SET id=? , name=?")
+			if err != nil {
+			//	panic(err)
+			w.WriteHeader(500)
+		}
+			_, err = stmt.Exec(str, s)
+			if err != nil {
+					//panic(err)
+					 w.WriteHeader(500)
+
+			}
+
+			i=i+1
+			break;
+	
+		}
+
+		w.WriteHeader(http.StatusCreated)
+json.NewEncoder(w).Encode(Pad{str,s,""})
+
+   }
+
+
+
+
+
+
+	for k, v := range PadMap {
+		fmt.Printf("key[%s] value[%s]\n", k, v)
+	}
+
+	fmt.Printf("----------\n")
+if err!=nil{
+fmt.Fprintf(w,"%s",err)
+}else{
+fmt.Fprintf(w,"")
+}
+
+}
+func (c Controller) RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+	fmt.Fprint(w,"RenameFile\n")
+db, err := sql.Open("mysql",
+                "root:root@tcp(localhost:3306)/onlineEditor")
+w.WriteHeader(200)
+        if err != nil {
+                //panic(err.Error())  // Just for example purpose. You should use proper error handling instead of panic
+		w.WriteHeader(500)
+        }
+        defer db.Close()
+
+
+	decoder := json.NewDecoder(r.Body)
+	var t Pad
+	err = decoder.Decode(&t)
+	if err != nil {
+		w.WriteHeader(500)
+		//panic(err)
+	}
+
+	if val,ok :=PadMap[t.ID]; ok {
+		fmt.Println("Found", val.Name)
+		PadMap[t.ID].Name=t.Name
+ stmt,err := db.Prepare("UPDATE filesMetaData SET name=? WHERE id=? ")
+   if err != nil {
+	w.WriteHeader(500)
+       //panic(err)
+   }
+		_, err = stmt.Exec(t.Name, t.ID)
+			if err != nil {
+			//		panic(err)
+					 w.WriteHeader(500)
+
+			}
+
+	}else{
+		fmt.Println("File %s not found",t.ID)
+	}
+}
+
+func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+	decoder := json.NewDecoder(r.Body)
+	var t Pad
+    	w.WriteHeader(200)
+fmt.Fprint(w,"DeleteFile\n")
+db, err := sql.Open("mysql",
+                "root:root@tcp(localhost:3306)/onlineEditor")
+
+
+
+	err = decoder.Decode(&t)
+	if err != nil {
+		w.WriteHeader(500)
+		//panic(err)
+	}
+
+	if val,ok :=PadMap[t.ID]; ok {
+			fmt.Println("Delete", val.Name)
+		err := os.Remove("./SavedFiles/"+PadMap[t.ID].ID+".txt")
+		if err != nil {
+			w.WriteHeader(500)
+			//log.Fatal(err)
+		}
+		 stmt,err := db.Prepare("DELETE FROM filesMetaData where id=? ")
+   if err != nil {
+       w.WriteHeader(500)
+	//panic(err)
+   }
+		_, err = stmt.Exec(t.ID)
+			if err != nil {
+			//		panic(err)
+					 w.WriteHeader(500)
+
+			}
+		delete(PadMap,t.ID)
+		
+
+	}else{
+		fmt.Println("File %s not found",t.ID)
+	}
+}
+
+func (c Controller) EmptyDocument(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+	decoder := json.NewDecoder(r.Body)
+	var t Pad
+	w.WriteHeader(200)
+	err := decoder.Decode(&t)
+	if err != nil {
+		//panic(err)
+		w.WriteHeader(500)
+	}
+
+	if val,ok :=PadMap[t.ID]; ok {
+		fmt.Println("Empty Document : ", val.Name)
+		err := os.Truncate("./SavedFiles/"+PadMap[t.ID].ID+".txt", 0)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w,"%s",err)
+			w.WriteHeader(500)
+		}
+	}else{
+		fmt.Println("File %s not found",t.ID)
+	}
+
+}
+
+

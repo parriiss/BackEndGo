@@ -73,7 +73,7 @@ func handleURLS(r *httprouter.Router) {
 	// r.POST(<URL1> , <function>)
 	r.POST("/LoadFile", c.LoadFile)
 	r.POST("/PadHistory", c.GetPadHistory)
-
+	r.POST("/NewPad",c.CreateNewPad)
 	// ....
 	// ...
 	// .
