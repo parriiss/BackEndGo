@@ -32,6 +32,7 @@ import (
 	"time"
 	"fmt"
 	"os"
+	"io"
 )
 
 // controller for requests (methods)
@@ -324,7 +325,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter ,r *http.Request, _ httpr
 	w.Header().Set("Content-Type","application/json")
 
 	// fmt.Fprint(w,"CreateNewPad\n")
-pad_num=len(PadMap)
+pad_num=len(PadMap)+1
 	s:=strconv.Itoa(pad_num)
 	s="Newpad"+s
 
@@ -385,6 +386,27 @@ pad_num=len(PadMap)
 		fmt.Println("----------\n", er)
 		return
 	}
+	update_start_session_atDb(str,r.Host)
+        /*
+	if er != nil {
+                // return internal error status at client
+                // db.Open or db.Prepare or Exec returned error
+                // couldn't insert to database
+
+                // delete from map pad that could not insert to db 
+                // and reduce counter for name creation
+                pad_num--
+                delete(PadMap , str)
+
+                // delete file at server of pad that could not insert to db
+                if er2 := os.Remove(f); er2 != nil{
+                        fmt.Println("----------\n", er2)
+                }
+
+                w.WriteHeader(500)
+                fmt.Println("----------\n", er)
+                return
+        }*/
 
 	
 	// pad created, return created status at client
@@ -497,6 +519,51 @@ func update_filename_atDb(padId, newName string) (err error) {
 	return
 }
 
+
+
+
+
+
+func delete_history_of_Pad_DB(padId string ){
+ db, err := sql.Open("mysql","root:root@tcp(localhost:3306)/onlineEditor")
+                if err != nil { return }        
+                defer db.Close()
+
+                stmt, err := db.Prepare("DELETE  FROM historyFiles WHERE id=?")
+                if err != nil {
+                        return
+                }
+                _, err = stmt.Exec(padId)
+                if err != nil {
+                        return
+                }
+
+return
+
+
+
+
+}
+func update_start_session_atDb(padId string,ip string ) (err error ){
+ logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
+                db, err := sql.Open("mysql","root:root@tcp(localhost:3306)/onlineEditor")
+	        if err != nil { return }        
+                defer db.Close()
+
+		stmt, err := db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
+                if err != nil {
+                        return
+                }
+                _, err = stmt.Exec(ip, padId, logInTime, 1)
+                if err != nil {
+                        return
+                }
+
+return
+
+}
+
+
 /*
 Gets a Request to delete a file with specific ID
 -Request: JSON->id
@@ -571,7 +638,12 @@ func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprou
 			fmt.Println("----------\n", err)
 			return			
    		}
-		
+		delete_history_of_Pad_DB(t.ID)
+		if err!=nil {
+                                w.WriteHeader(500)
+                                return
+                        }
+
 		RemoveBackupFile(recPath)
 			if err!=nil {
                 		w.WriteHeader(500)
