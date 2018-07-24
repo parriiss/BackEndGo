@@ -8,7 +8,6 @@ import "time"
 type put_req string
 
 const (
-	Ins put_req = "ins"
 	Dlt put_req = "dlt"
 	Wr  put_req = "wr"
 )
