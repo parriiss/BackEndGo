@@ -32,7 +32,6 @@ import (
 	"time"
 	"fmt"
 	"os"
-	
 )
 
 // controller for requests (methods)
@@ -311,17 +310,21 @@ var pad_num = 0
 
 var PadMap = make(map[string]*Pad.Pad_info)
 
-
 /*
-	TODO:
-		~Add documentation, return values and description 
+CreateNewPad
+-Gets a request to create a new NotePad
+-Respond back with:
+	StatusCode:200 Success,Ok
+	StatusCode:500 Server Error(Fail to create a file,or generate a new ID)
+
+
 */
 func (c Controller) CreateNewPad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type","application/json")
 
 	// fmt.Fprint(w,"CreateNewPad\n")
-
+pad_num=len(PadMap)
 	s:=strconv.Itoa(pad_num)
 	s="Newpad"+s
 
@@ -438,8 +441,13 @@ func insert_padID_to_db(id ,name string) (er error){
 }
 
 /*
-	TODO:
-		~Add documentation, return values and description 
+Gets a Request to rename a file with specific ID
+-Request: JSON->id
+
+-Respond back with:
+        StatusCode:200 Success,Ok
+        StatusCode:500 Server Error(Fail to create a file,or generate a new ID)
+	StatusCode:400 Could not decode JSON
 */
 func (c Controller) RenameFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	// fmt.Fprint(w,"RenameFile\n")
@@ -489,8 +497,14 @@ func update_filename_atDb(padId, newName string) (err error) {
 }
 
 /*
-	TODO:
-		~Add documentation, return values and description 
+Gets a Request to delete a file with specific ID
+-Request: JSON->id
+
+-Respond back with:
+        StatusCode:200 Success,Ok
+        StatusCode:500 Server Error(Fail to remove the requested file locally)
+        StatusCode:400 Could not decode JSON
+ 
 */
 func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	// fmt.Fprint(w,"DeleteFile\n")
@@ -512,14 +526,25 @@ func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprou
 	if val,ok :=PadMap[t.ID]; ok {
 		
 		fmt.Println("Delete", val.Name)
-		/*
-			TODO:
-				~keep a temp file( maybe move original)
-					if error happens in next steps so
-					that you can go back to and not
-					remove file
-		*/
-		err := os.Remove("./SavedFiles/"+PadMap[t.ID].ID+".txt")
+ /*
+                
+                     ~keep a temp file( maybe move original)
+                     if error happens in next steps so
+                      that you can go back to and not
+                       remove file
+                */
+
+
+	recPath:="./"+t.ID+"-Backup"+".txt"
+	originalPath:="./SavedFiles/"+PadMap[t.ID].ID+".txt"
+	CreateBackupFile(originalPath,recPath)
+		if err!=nil {
+                	w.WriteHeader(500)
+                	return
+               	}
+		
+		
+		err = os.Remove(originalPath)
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Println("----------\n", err)
@@ -528,21 +553,80 @@ func (c Controller) DeleteFile(w http.ResponseWriter ,r *http.Request, _ httprou
 		
 		deletePad_fromDb(t.ID)
    		if err != nil {
-			/*
-				TODO:
-					~if error happens at database connection recover deleted file
-   			*/
+			 /*
+                               
+                                        ~if error happens at database connection recover deleted file
+                        */
+
+			 err:=os.Rename(recPath,originalPath)
+			 if err!=nil {
+                		w.WriteHeader(500)
+                		return
+        		}
+
+			
 
    			w.WriteHeader(500)
 			fmt.Println("----------\n", err)
 			return			
    		}
 		
+		RemoveBackupFile(recPath)
+			if err!=nil {
+                		w.WriteHeader(500)
+                		return
+        		}
 		// almost impossible for an erro to happen here 
 		delete(PadMap,t.ID)
 	}else{
 		fmt.Println("File %s not found",t.ID)
 	}
+}
+/*
+Gets the original path of a file and creates a new file wih the contents of the original one as backup
+ Returns err if occurs one
+*/
+func CreateBackupFile(originalPath string,backupPath string)(err error){
+
+newFile,err := os.Create(backupPath)	
+	if err!=nil {
+
+		return 
+	}
+	defer newFile.Close()
+	originalFile,err:=os.Open(originalPath)
+	if err!=nil {
+
+                return 
+        }
+
+	bytesWritten,err := io.Copy(newFile,originalFile)
+	if err!=nil {
+
+                return
+        }
+	fmt.Println("Copied %d bytes",bytesWritten)
+	err = newFile.Sync()
+	if err!=nil {
+
+                return
+        }
+
+
+return
+}
+
+/*
+Gets the path of a backup File and it removes it only in case we dont need it anymore.
+Returns err if occurs one
+*/
+func RemoveBackupFile(backupPath string)(err error){
+		err = os.Remove(backupPath)
+		if err!=nil {
+
+                return
+        }
+return
 }
 
 func deletePad_fromDb(padID string) (err error) {
@@ -558,10 +642,14 @@ func deletePad_fromDb(padID string) (err error) {
 }
 
 /*
-	TODO:
-		~Add documentation, return values and description 
-		~Return better 400 errors to clien so it can know if 
-			server could not find file or decode json 
+Gets a Request to empty the contents of a file with specific ID
+-Request: JSON->id
+
+-Respond back with:
+        StatusCode:200 Success,Ok
+        StatusCode:500 Server Error(Fail to truncate the requested file)
+        StatusCode:400 Could not decode JSON
+
 */
 func (c Controller) EmptyDocument(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 
