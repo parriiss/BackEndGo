@@ -76,6 +76,7 @@ func handleURLS(r *httprouter.Router) {
 	r.POST("/LoadFile", c.LoadFile)
 	r.POST("/PadHistory", c.GetPadHistory)
 	r.POST("/NewPad",c.CreateNewPad)
+	
 	// ....
 	// ...
 	// .
@@ -88,7 +89,7 @@ func handleURLS(r *httprouter.Router) {
 	// .
 
 	//	DELETE
-	// r.DELETE(<URL1> , <function>)
+	r.DELETE("/Delete", c.DeleteFile)
 	r.DELETE("/Edit", c.Upd_DLT)
 	// ....
 

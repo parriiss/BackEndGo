@@ -338,6 +338,7 @@ pad_num=len(PadMap)
 	PadMap[str] = &Pad.Pad_info{str, s, "", }
 
 	f:="./SavedFiles/"+str+".txt"
+	fmt.Println("OPEEEEEEN");
 	_,er = os.Create(f)
 	if er != nil {
 		// could not create file in server
