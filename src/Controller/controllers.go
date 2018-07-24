@@ -18,20 +18,20 @@ package control
 */
 
 import (
+	"github.com/julienschmidt/httprouter"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/lucasjones/reggen"
 	"../model/PadHistory"
 	"../model/Requests"
-	"database/sql"
-	"encoding/json"
-	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/julienschmidt/httprouter"
-	"io/ioutil"
-	"net/http"
-	"time"
-	"os"
 	"../model/Pad_info"
+	"encoding/json"
+	"database/sql"
+	"net/http"
 	"strconv"
-	"github.com/lucasjones/reggen"
+	"io/ioutil"
+	"time"
+	"fmt"
+	"os"
 	
 )
 
@@ -75,6 +75,8 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	//request
 	padRequest := PadRequest{}
 	json.NewDecoder(r.Body).Decode(&padRequest)
+	defer r.Body.Close()
+
 	//answer
 	var pad Pad.Pad_info
 	file, err := ioutil.ReadFile("SavedFiles/" + padRequest.Id)
@@ -101,7 +103,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 			errorMessage = "error db"
 			errorFlag = true
 		}
-		pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString}
+		pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, false}
 		//insert in db info about user started session
 		//time format
 		logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
@@ -122,7 +124,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	}
 	w.WriteHeader(200)
 	if errorFlag == true {
-		pad = Pad.Pad_info{"", "", errorMessage}
+		pad = Pad.Pad_info{"", "", errorMessage,false}
 		w.WriteHeader(500)
 	}
 	jsonAnswer, err := json.Marshal(pad)
@@ -221,6 +223,10 @@ func (c Controller) About(w http.ResponseWriter,
 }
 
 /*
+	The only change between PUT and delete is that in server side 
+	the request that is passed to handler is of different type:
+		(DELETE: Request.Dlt PUT: Request.Wr)
+
 	http response header status:
 		202-->request received for processing
 			not yet served
@@ -234,30 +240,27 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	c_req := Requests.Client_Put{}
 	s_req := Requests.Editor_req{}
 
-	defer r.Body.Close()
 	if er := json.NewDecoder(r.Body).Decode(&c_req); er != nil {
-		fmt.Println("Error in decoding json in write Parse_requests")
+		fmt.Println("Error in decoding json in write Parse_requests\n",er)
 		w.WriteHeader(400)
 		return
 	}
+	defer r.Body.Close()
 
 	/*
 		possible error json checking here for quick response of
 		wrong data to client
 	*/
 
-	t := Requests.Wr
-	if c_req.OffsetTo > 0 {
-		t = Requests.Ins
+	s_req = Requests.Editor_req{
+		Req_date:   	c_req.Req_date,
+		Req_type:   	Requests.Wr,
+		Val:        	c_req.Val,
+		OffsetFrom: 	c_req.OffsetFrom,
+		OffsetTo:   	c_req.OffsetTo,
+		Notepad_ID:	c_req.Notepad_ID,
 	}
 
-	s_req = Requests.Editor_req{
-		Req_date:   c_req.Req_date,
-		Req_type:   t,
-		Val:        c_req.Val,
-		OffsetFrom: c_req.OffsetFrom,
-		OffsetTo:   c_req.OffsetTo,
-	}
 
 	// 	put req in channel for routine to handle
 	Requests.In <- s_req
@@ -270,7 +273,37 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	Edit page
 */
 func (c Controller) Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
 
+	c_req := Requests.Client_Put{}
+	s_req := Requests.Editor_req{}
+
+	if er := json.NewDecoder(r.Body).Decode(&c_req); er != nil {
+		fmt.Println("Error in decoding json in write Parse_requests\n",er)
+		w.WriteHeader(400)
+		return
+	}
+	defer r.Body.Close()
+
+	/*
+		possible error json checking here for quick response of
+		wrong data to client
+	*/
+
+	s_req = Requests.Editor_req{
+		Req_date:   	c_req.Req_date,
+		Req_type:   	Requests.Dlt,
+		OffsetFrom: 	c_req.OffsetFrom,
+		OffsetTo:   	c_req.OffsetTo,
+		Notepad_ID:	c_req.Notepad_ID,
+	}
+
+
+	// 	put req in channel for routine to handle
+	Requests.In <- s_req
+
+	w.WriteHeader(202)
 }
 
 
@@ -283,7 +316,7 @@ var PadMap = make(map[string]*Pad.Pad_info)
 	TODO:
 		~Add documentation, return values and description 
 */
-func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
+func (c Controller) CreateNewPad(w http.ResponseWriter ,r *http.Request, _ httprouter.Params){
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type","application/json")
 
@@ -306,7 +339,7 @@ func (c Controller) CreateNewPad (w http.ResponseWriter ,r *http.Request, _ http
 	pad_num++
 	
 
-	PadMap[str] = &Pad.Pad_info{str, s, "", }
+	PadMap[str] = &Pad.Pad_info{str, s, "",false }
 
 	f:="./SavedFiles/"+str+".txt"
 	_,er = os.Create(f)
