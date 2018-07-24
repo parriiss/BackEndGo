@@ -3,9 +3,9 @@
 package Pad
 
 import (
+	"io/ioutil"
 	"fmt"
 	"os"
-	"io/ioutil"
 )
 
 //----------------------Options for Pad---NewPad(StorePad),Delete,Rename,EmptyDocument---------------------------
@@ -13,6 +13,7 @@ type Pad_info struct{
 	ID string 	`json:"id"`
 	Name string 	`json:"name"`
 	Value string 	`json:"value"`
+	Need_upd bool 
 }
 
 
@@ -44,8 +45,18 @@ func (p *Pad_info) Get_Contents()(er error){
 	(update in filesystem)
 	return er!=nil if failed
 */
-func (p Pad_info) Update_File() (er error){
-	filePath := "./SavedFiles/"+p.ID+".txt"
-	er = ioutil.WriteFile(filePath, []byte(p.Value), 0666)
+func (p *Pad_info) Update_file() (er error){
+	if p.Need_upd{
+		filePath := "./SavedFiles/"+p.ID+".txt"
+		if er = ioutil.WriteFile(filePath, []byte(p.Value), 0666); er!=nil{
+			fmt.Println("Could not update file ", p.ID ,er)
+		}else{
+			p.Need_upd = false
+		}
+	}
 	return
+}
+
+func (p *Pad_info) Need_update(){
+	p.Need_upd = true
 }
