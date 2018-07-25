@@ -43,7 +43,7 @@ type Control_Fun interface {
 	About(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
-	LoadFile(w http.ResponseWriter, r *http.Request, p httprouter.Params)
+	LoadPad(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	GetPadHistory(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	CreateNewPad(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	RenameFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
@@ -81,9 +81,14 @@ func (c Controller) LoadPadFromFile(padId string) (string, error) {
 }
 
 /*
- * Return the info and value of padFile according to pad id
- */
-func (c Controller) LoadFile(w http.ResponseWriter,
+ * 'GET' function that returns
+  the info and value of padFile according
+  to pad id
+  In case of error return as value of
+  pad a message according to the error
+  and 500 error in the header
+*/
+func (c Controller) LoadPad(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -91,10 +96,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 	errorFlag := false
 	errorMessage := ""
 	//request
-	padRequest := PadRequest{}
-	json.NewDecoder(r.Body).Decode(&padRequest)
-	defer r.Body.Close()
-
+	padRequest := PadRequest{p.ByName("id")}
 	//answer
 	var pad Pad.Pad_info
 	fileAsString, err := c.LoadPadFromFile(padRequest.Id)
@@ -105,38 +107,42 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 		//request in database for name
 		db, err := sql.Open("mysql", "root:useruseruser@/onlineEditor")
 		if err != nil {
-			errorMessage = "error db"
+			errorMessage = "cant open db"
 			errorFlag = true
-		}
-		defer db.Close()
-		stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
-		if err != nil {
-			errorMessage = "error db"
-			errorFlag = true
-		}
-		var fileName string
-		err = stmt.QueryRow(padRequest.Id).Scan(&fileName)
-		if err != nil {
-			errorMessage = "error db"
-			errorFlag = true
-		}
-		pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, false}
-		//insert in db info about user started session
-		//time format
-		logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
-		userIp := string(r.RemoteAddr)
-		//state=1 :: started session
-		state := 1
+		} else {
+			defer db.Close()
+			stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
+			if err != nil {
+				errorMessage = "error db"
+				errorFlag = true
+			} else {
+				var fileName string
+				err = stmt.QueryRow(padRequest.Id).Scan(&fileName)
+				if err != nil {
+					errorMessage = "cant find pad name in db"
+					errorFlag = true
+				} else {
+					pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, false}
+					//insert in db info about user started session
+					//time format
+					logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
+					userIp := string(r.RemoteAddr)
+					//state=1 :: started session
+					state := 1
 
-		stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
-		if err != nil {
-			errorMessage = "error db"
-			errorFlag = true
-		}
-		_, err = stmt.Exec(userIp, padRequest.Id, logInTime, state)
-		if err != nil {
-			errorMessage = "error db"
-			errorFlag = true
+					stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
+					if err != nil {
+						errorMessage = "error db"
+						errorFlag = true
+					} else {
+						_, err = stmt.Exec(userIp, padRequest.Id, logInTime, state)
+						if err != nil {
+							errorMessage = "error db"
+							errorFlag = true
+						}
+					}
+				}
+			}
 		}
 	}
 	w.WriteHeader(200)
@@ -144,6 +150,7 @@ func (c Controller) LoadFile(w http.ResponseWriter,
 		pad = Pad.Pad_info{"", "", errorMessage, false}
 		w.WriteHeader(500)
 	} else {
+		//add the user to the global map logedInUsers
 		userIp := string(r.RemoteAddr)
 		LogedInUsers.InsertUserIp(userIp, padRequest.Id)
 	}
@@ -561,7 +568,6 @@ func (c Controller) DeleteFile(w http.ResponseWriter, r *http.Request, _ httprou
 		deletePad_fromDb(t.ID)
 		if err != nil {
 			/*
-
 			   ~if error happens at database connection recover deleted file
 			*/
 
@@ -658,7 +664,6 @@ Gets a Request to empty the contents of a file with specific ID
         StatusCode:200 Success,Ok
         StatusCode:500 Server Error(Fail to truncate the requested file)
         StatusCode:400 Could not decode JSON
-
 */
 func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 

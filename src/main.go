@@ -16,20 +16,20 @@ package main
 		~need to keep content of notepad in file
 		~need to setup sql for metadata
 		~define all model structs
-		~make struct that holds users connected to pad and pad contents 
+		~make struct that holds users connected to pad and pad contents
 		~keep slice of open notepads
 */
 
 import (
-	"github.com/julienschmidt/httprouter"
-	"./model/Requests"
 	"./Controller"
-	"net/http"
+	"./model/Requests"
 	"errors"
+	"fmt"
+	"github.com/julienschmidt/httprouter"
+	"net/http"
+	"sort"
 	"sync"
 	"time"
-	"sort"
-	"fmt"
 )
 
 // map for saving possible out-of-order requsts
@@ -71,12 +71,11 @@ func handleURLS(r *httprouter.Router) {
 
 	// 	GET
 	r.GET("/OnlineEditor/About", c.About)
-
+	r.GET("/LoadPad/:id", c.LoadPad)
 	// 	POST
 	// r.POST(<URL1> , <function>)
-	r.POST("/LoadFile", c.LoadFile)
 	r.POST("/PadHistory", c.GetPadHistory)
-	r.POST("/NewPad",c.CreateNewPad)
+	r.POST("/NewPad", c.CreateNewPad)
 	// ....
 	// ...
 	// .
@@ -95,24 +94,24 @@ func handleURLS(r *httprouter.Router) {
 
 }
 
-/* 
+/*
 	***IMPORTANT***
 	Can change edition policy:
 		Requests edit notepad contents which is
 		a string kept while connection with client is open
-		
+
 		Each requst modifies notepad contents' string
 		at the end of a back-end-defined period contents
-		are written to disk (? mins). Also Contents are 
+		are written to disk (? mins). Also Contents are
 		written to disk (flush) at timeout/logout.
 				-----OR-----
-		Can keep contents in mem and save file when 
+		Can keep contents in mem and save file when
 		user asks (more front end work) probably not
 		gonna do that.
 
 
 	This is supposed to act as a go routine
-	running in the background receiving requests 
+	running in the background receiving requests
 	through the in channel,
 
 	saves them and periodically(5sec, not many words can be written hence can be
@@ -120,9 +119,9 @@ func handleURLS(r *httprouter.Router) {
 	write into file serverside
 */
 func Handle_Requests() {
-	var next_upd , next_serve time.Time
+	var next_upd, next_serve time.Time
 	// run while server is UP
-	
+
 	// update_Files every 1 min
 	next_upd = time.Now().Add(addDur(0, 1, 0))
 
@@ -144,9 +143,9 @@ func Handle_Requests() {
 		if next_serve.After(time.Now()) {
 			serve_reqs()
 			// next requests serve will happen after 5 s
-			next_serve = time.Now().Add(addDur(0, 0,5))
+			next_serve = time.Now().Add(addDur(0, 0, 5))
 		}
-		
+
 		if next_upd.After(time.Now()) {
 			update_Files()
 			// next update will come after 1 min
@@ -208,12 +207,12 @@ func serve_reqs() {
 				TODO:
 					~handle errors
 			*/
-			if er := doDelete( v.Notepad_ID, v); er==nil{
+			if er := doDelete(v.Notepad_ID, v); er == nil {
 				// remove served request
-				Saved_requests = append(Saved_requests[:i], 
-								Saved_requests[i+1:]...)
-			}else{
-				fmt.Println("Error at serving requests:\n\t",er)
+				Saved_requests = append(Saved_requests[:i],
+					Saved_requests[i+1:]...)
+			} else {
+				fmt.Println("Error at serving requests:\n\t", er)
 			}
 		case Requests.Wr:
 			/*
@@ -225,12 +224,12 @@ func serve_reqs() {
 				TODO:
 					~handle errors
 			*/
-			if er:= doWrite(v.Notepad_ID, v); er == nil{
+			if er := doWrite(v.Notepad_ID, v); er == nil {
 				// remove served requesr
-				Saved_requests = append(Saved_requests[:i], 
-								Saved_requests[i+1:]...)
-			}else{
-				fmt.Println("Error at serving requests:\n\t",er)
+				Saved_requests = append(Saved_requests[:i],
+					Saved_requests[i+1:]...)
+			} else {
+				fmt.Println("Error at serving requests:\n\t", er)
 			}
 
 		default:
@@ -240,37 +239,35 @@ func serve_reqs() {
 	SavedReq_Mux.Unlock()
 }
 
-
 /*
-	Parse request received and write value in pad's value that is 
+	Parse request received and write value in pad's value that is
 	that is kept at global PadMap (controllers.go)
 */
-func doWrite(pad_id string, req Requests.Editor_req) (er error){
-	if pad ,ok:=control.PadMap[pad_id]; ok{
+func doWrite(pad_id string, req Requests.Editor_req) (er error) {
+	if pad, ok := control.PadMap[pad_id]; ok {
 		//change value of pad in  mem
-		pad.Value = pad.Value[:req.OffsetFrom]+req.Val+pad.Value[req.OffsetFrom:]
+		pad.Value = pad.Value[:req.OffsetFrom] + req.Val + pad.Value[req.OffsetFrom:]
 		pad.Need_update()
 		control.PadMap[pad_id] = pad
-	}else{
-		er = errors.New("Could not find ID:"+pad_id)
+	} else {
+		er = errors.New("Could not find ID:" + pad_id)
 	}
 
 	return
 }
 
-
 /*
-	Parse request received and delete from pad that is 
+	Parse request received and delete from pad that is
 	that is kept at global PadMap (controllers.go)
 	the chars requested
 */
-func doDelete(pad_id string, req Requests.Editor_req) (er error){
-	if pad ,ok:=control.PadMap[pad_id]; ok{
-		pad.Value = pad.Value[:req.OffsetFrom]+pad.Value[req.OffsetTo:]
+func doDelete(pad_id string, req Requests.Editor_req) (er error) {
+	if pad, ok := control.PadMap[pad_id]; ok {
+		pad.Value = pad.Value[:req.OffsetFrom] + pad.Value[req.OffsetTo:]
 		pad.Need_update()
 		control.PadMap[pad_id] = pad
-	}else{
-		er = errors.New("Could not find ID:"+pad_id)
+	} else {
+		er = errors.New("Could not find ID:" + pad_id)
 	}
 
 	return
@@ -281,19 +278,18 @@ func addDur(h, m, s int) time.Duration {
 		time.Second*time.Duration(s)
 }
 
-
 /*
 	For all files that are active (being editted and not timedout)
-	kept in the PadMap update the file they are referring to 
+	kept in the PadMap update the file they are referring to
 */
-func update_Files() (er error){
-	for _, pad := range control.PadMap{
-		if pad.Need_upd{
+func update_Files() (er error) {
+	for _, pad := range control.PadMap {
+		if pad.Need_upd {
 			can_write_to_file.Lock()
-			if er = pad.Update_file(); er!=nil{
+			if er = pad.Update_file(); er != nil {
 				can_write_to_file.Unlock()
-				fmt.Println("Error updating pad_file contents for ",pad.ID)
-				fmt.Println("\t------\n",er,"\t------\n")
+				fmt.Println("Error updating pad_file contents for ", pad.ID)
+				fmt.Println("\t------\n", er, "\t------\n")
 				break
 			}
 			can_write_to_file.Unlock()
@@ -301,4 +297,3 @@ func update_Files() (er error){
 	}
 	return
 }
-
