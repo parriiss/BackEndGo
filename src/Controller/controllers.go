@@ -18,6 +18,8 @@ package control
 */
 
 import (
+	//"../model/DataBaseInfo"
+	"../model/DataBaseInfo"
 	"../model/LogedInUsers"
 	"../model/PadHistory"
 	"../model/Pad_info"
@@ -106,7 +108,8 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		errorFlag = true
 	} else {
 		//request in database for name
-		db, err := sql.Open("mysql", "root:useruseruser@/onlineEditor")
+		fmt.Println(DataBaseInfo.DBLogInString())
+		db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
 		if err != nil {
 			errorMessage = "cant open db"
 			errorFlag = true
@@ -208,7 +211,7 @@ func (c Controller) GetPadHistory(w http.ResponseWriter,
 	//TODO check if exist the pad with this id
 
 	//connect to db
-	db, err := sql.Open("mysql", "root:useruseruser@/onlineEditor")
+	db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
 	if err != nil {
 		errorFlag = true
 	}
@@ -463,7 +466,7 @@ func generate_Pad_Name() (str string, er error) {
 	Insert new pad Id to db
 */
 func insert_padID_to_db(id, name string) (er error) {
-	db, er := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/onlineEditor")
+	db, er := sql.Open("mysql", DataBaseInfo.DBLogInString())
 	defer db.Close()
 
 	stmt, er := db.Prepare("INSERT INTO filesMetaData SET id=? , name=?")
@@ -519,7 +522,7 @@ func (c Controller) RenameFile(w http.ResponseWriter, r *http.Request, _ httprou
 }
 
 func update_filename_atDb(padId, newName string) (err error) {
-	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/onlineEditor")
+	db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
 	if err != nil {
 		return
 	}
@@ -660,7 +663,7 @@ func RemoveBackupFile(backupPath string) (err error) {
 }
 
 func deletePad_fromDb(padID string) (err error) {
-	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/onlineEditor")
+	db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
 	if err != nil {
 		return
 	}
