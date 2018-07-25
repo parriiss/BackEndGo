@@ -44,6 +44,7 @@ type Control_Fun interface {
 	Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	Upd_DLT(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	LoadPad(w http.ResponseWriter, r *http.Request, p httprouter.Params)
+	GetLoggedInUsers(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	GetPadHistory(w http.ResponseWriter, r *http.Request, p httprouter.Params)
 	CreateNewPad(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	RenameFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
@@ -156,6 +157,24 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	}
 	jsonAnswer, err := json.Marshal(pad)
 	fmt.Fprintf(w, "%s", jsonAnswer)
+}
+
+/*
+Get Method to return according to padId all
+the users from global map logedinusers that they are edititng the pad
+in case of an error (no one edit the pad or the pad dont exist)
+return an empty array
+*/
+func (c Controller) GetLoggedInUsers(w http.ResponseWriter,
+	r *http.Request, p httprouter.Params) {
+
+	padId := p.ByName("id")
+	users := LogedInUsers.GetUsers(padId)
+	jsonAnswer, err := json.Marshal(users)
+	if err == nil {
+		fmt.Fprintf(w, "%s", jsonAnswer)
+		fmt.Println(string(jsonAnswer))
+	}
 }
 
 /*
