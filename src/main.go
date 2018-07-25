@@ -22,6 +22,7 @@ package main
 
 import (
 	"./Controller"
+	"./model/DataBaseInfo"
 	"./model/Requests"
 	"errors"
 	"fmt"
@@ -39,6 +40,8 @@ var can_write_to_file sync.Mutex
 var SavedReq_Mux sync.Mutex
 
 func main() {
+
+	DataBaseInfo.LoadDBInfo()
 
 	r := httprouter.New()
 
