@@ -32,7 +32,7 @@ func LoadDBInfo() {
 	}
 	defer file.Close()
 	byteValue, _ := ioutil.ReadAll(file)
-	json.Unmarshal(byteValue, &DBInfo)SS
+	json.Unmarshal(byteValue, &DBInfo)
 }
 
 /*
