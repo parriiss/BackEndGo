@@ -32,5 +32,17 @@ func LoadDBInfo() {
 	}
 	defer file.Close()
 	byteValue, _ := ioutil.ReadAll(file)
-	json.Unmarshal(byteValue, &DBInfo)
+	json.Unmarshal(byteValue, &DBInfo)SS
+}
+
+/*
+return the string we need to connect to db
+more specific return the string that we need in
+sql.open command as second argument
+example :: sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/onlineEditor")
+*/
+func DBLogInString() string {
+	logInString := DBInfo.Username + ":" + DBInfo.Password + "@tcp(" +
+		DBInfo.Ip + ":" + DBInfo.Port + ")/" + DBInfo.DBName
+	return logInString
 }
