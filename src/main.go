@@ -22,6 +22,7 @@ package main
 
 import (
 	"./Controller"
+	"./model/DataBaseInfo"
 	"./model/Requests"
 	"errors"
 	"fmt"
@@ -39,6 +40,8 @@ var can_write_to_file sync.Mutex
 var SavedReq_Mux sync.Mutex
 
 func main() {
+
+	DataBaseInfo.LoadDBInfo()
 
 	r := httprouter.New()
 
@@ -71,13 +74,12 @@ func handleURLS(r *httprouter.Router) {
 
 	// 	GET
 	r.GET("/OnlineEditor/About", c.About)
-
+	r.GET("/LoadPad/:id", c.LoadPad)
+	r.GET("/GetUsers/:id", c.GetLoggedInUsers)
 	// 	POST
 	// r.POST(<URL1> , <function>)
-	r.POST("/LoadFile", c.LoadFile)
 	r.POST("/PadHistory", c.GetPadHistory)
 	r.POST("/NewPad", c.CreateNewPad)
-	r.POST("/Rename", c.RenameFile)
 	// ....
 	// ...
 	// .
@@ -90,7 +92,7 @@ func handleURLS(r *httprouter.Router) {
 	// .
 
 	//	DELETE
-	r.DELETE("/Delete", c.DeleteFile)
+	// r.DELETE(<URL1> , <function>)
 	r.DELETE("/Edit", c.Upd_DLT)
 	// ....
 
