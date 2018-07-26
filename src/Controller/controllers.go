@@ -75,7 +75,7 @@ if the pad exist but it is empty return an empty string and a nil error
 otherwise return nil error and the content
 */
 func (c Controller) LoadPadFromFile(padId string) (string, error) {
-	file, err := ioutil.ReadFile("SavedFiles/" + padId)
+	file, err := ioutil.ReadFile("SavedFiles/" + padId + "txt")
 	if err != nil {
 		return "", err
 	}
@@ -108,7 +108,6 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		errorFlag = true
 	} else {
 		//request in database for name
-		fmt.Println(DataBaseInfo.DBLogInString())
 		db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
 		if err != nil {
 			errorMessage = "cant open db"
@@ -133,7 +132,8 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 					userIp := string(r.RemoteAddr)
 					//state=1 :: started session
 					state := 1
-
+					//keep the pad in the global pad map
+					PadMap[padRequest.Id] = &pad
 					stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
 					if err != nil {
 						errorMessage = "error db"
@@ -427,12 +427,19 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	}
 
 	// pad created, return created status at client
-	w.WriteHeader(204)
-
+	w.WriteHeader(200)
+	//insert the user ip to the global map where
+	//logedin user kept
+	userIp := string(r.RemoteAddr)
+	LogedInUsers.InsertUserIp(userIp, str)
 	// return to client pad that was created
-	uj := json.NewEncoder(w).Encode(PadMap[str])
-	fmt.Fprintf(w, "%s", uj)
 
+	//uj := json.NewEncoder(w).Encode(PadMap[str])
+	jsonAnswer, err := json.Marshal(PadMap[str])
+	if err == nil {
+		fmt.Println(string(jsonAnswer))
+		fmt.Fprintf(w, "%s", jsonAnswer)
+	}
 	// print_padMap()
 }
 
