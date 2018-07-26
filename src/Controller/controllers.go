@@ -406,7 +406,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 		another cpnnection to db must be made so that
 		record of pad must be deleted
 	*/
-	er = insert_padID_to_db(str, s)
+	er = insert_padID_to_db(str, s, r.Host)
 	if er != nil {
 		// return internal error status at client
 		// db.Open or db.Prepare or Exec returned error
@@ -465,7 +465,7 @@ func generate_Pad_Name() (str string, er error) {
 /*
 	Insert new pad Id to db
 */
-func insert_padID_to_db(id, name string) (er error) {
+func insert_padID_to_db(id, name, ip string) (er error) {
 	db, er := sql.Open("mysql", DataBaseInfo.DBLogInString())
 	defer db.Close()
 
@@ -475,7 +475,16 @@ func insert_padID_to_db(id, name string) (er error) {
 	}
 
 	_, er = stmt.Exec(id, name)
+	logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
 
+	stmt, err := db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
+	if err != nil {
+		return
+	}
+	_, err = stmt.Exec(ip, id, logInTime, 1)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -675,6 +684,16 @@ func deletePad_fromDb(padID string) (err error) {
 	}
 
 	_, err = stmt.Exec(padID)
+
+	stmt, err = db.Prepare("DELETE  FROM historyFiles WHERE id=?")
+	if err != nil {
+		return
+	}
+	_, err = stmt.Exec(padID)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
