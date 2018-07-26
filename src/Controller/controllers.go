@@ -75,7 +75,7 @@ if the pad exist but it is empty return an empty string and a nil error
 otherwise return nil error and the content
 */
 func (c Controller) LoadPadFromFile(padId string) (string, error) {
-	file, err := ioutil.ReadFile("SavedFiles/" + padId + "txt")
+	file, err := ioutil.ReadFile("SavedFiles/" + padId + ".txt")
 	if err != nil {
 		return "", err
 	}
@@ -176,15 +176,11 @@ func (c Controller) GetLoggedInUsers(w http.ResponseWriter,
 	jsonAnswer, err := json.Marshal(users)
 	if err == nil {
 		fmt.Fprintf(w, "%s", jsonAnswer)
-		fmt.Println(string(jsonAnswer))
 	}
 }
 
 /*
 	return the history of pad according to	pad id
-	TODO:
-		~check if file exist in global map
-			if not return 500 error
 */
 func (c Controller) GetPadHistory(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
@@ -192,12 +188,7 @@ func (c Controller) GetPadHistory(w http.ResponseWriter,
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	errorFlag := false
-
-	//request
-	//take the pad id
-	padRequest := PadRequest{}
-	json.NewDecoder(r.Body).Decode(&padRequest)
-	//answer
+	errorMessage := ""
 	//values of table historyFiles in DB
 	var (
 		id    string
@@ -207,37 +198,56 @@ func (c Controller) GetPadHistory(w http.ResponseWriter,
 		//slice with all history values
 		history []PadHistory.PadHistory
 	)
-
-	//TODO check if exist the pad with this id
-
-	//connect to db
-	db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
-	if err != nil {
+	//request
+	//take the pad id
+	padRequest := PadRequest{}
+	json.NewDecoder(r.Body).Decode(&padRequest)
+	//error in json from request
+	if padRequest.Id == "" {
 		errorFlag = true
-	}
-	//close th db
-	defer db.Close()
-
-	//query to db to take the history of pad
-	sqlStatement := `SELECT * FROM historyFiles WHERE id=?`
-	rows, err := db.Query(sqlStatement, padRequest.Id)
-	//iterate the results from query
-	for rows.Next() {
-		//read the values per row
-		err = rows.Scan(&ip, &id, &time, &state)
+		errorMessage = "error in json from request"
+	} else {
+		//answer
+		//connect to db
+		db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
 		if err != nil {
 			errorFlag = true
+			errorMessage = "cant connect to db"
+		} else {
+			//close th db
+			defer db.Close()
+
+			//query to db to take the history of pad
+			sqlStatement := `SELECT * FROM historyFiles WHERE id=?`
+			rows, err := db.Query(sqlStatement, padRequest.Id)
+			//iterate the results from query
+			for rows.Next() {
+				//read the values per row
+				err = rows.Scan(&ip, &id, &time, &state)
+				if err != nil {
+					errorFlag = true
+				}
+				//insert them to the slice
+				historyToInsert := PadHistory.PadHistory{ip, state, time}
+				history = append([]PadHistory.PadHistory{historyToInsert}, history...)
+			}
+			if len(history) == 0 {
+				errorFlag = true
+				errorMessage = "no history for this pad"
+			}
 		}
-		//insert them to the slice
-		historyToInsert := PadHistory.PadHistory{ip, state, time}
-		history = append([]PadHistory.PadHistory{historyToInsert}, history...)
 	}
-	w.WriteHeader(200)
 	if errorFlag == true {
 		w.WriteHeader(500)
+		fmt.Fprintf(w, errorMessage)
+		return
 	}
+	w.WriteHeader(200)
 	jsonAnswer, err := json.Marshal(history)
-	fmt.Fprintf(w, "%s", jsonAnswer)
+	if err == nil {
+		fmt.Fprintf(w, "%s", jsonAnswer)
+	}
+
 }
 
 /*
