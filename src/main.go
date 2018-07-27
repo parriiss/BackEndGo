@@ -288,15 +288,11 @@ func addDur(h, m, s int) time.Duration {
 */
 func update_Files() (er error){
 	for _, pad := range control.PadMap{
-		if pad.Need_upd{
-			can_write_to_file.Lock()
-			if er = pad.Update_file(); er!=nil{
-				can_write_to_file.Unlock()
-				fmt.Println("Error updating pad_file contents for ",pad.ID)
-				fmt.Println("\t------\n",er,"\t------\n")
-				break
-			}
+		if er = pad.Update_file(); er!=nil{
 			can_write_to_file.Unlock()
+			fmt.Println("Error updating pad_file contents for ",pad.ID)
+			fmt.Println("\t------\n",er,"\t------\n")
+			break
 		}
 	}
 	return

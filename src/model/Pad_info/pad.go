@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"fmt"
 	"os"
+	"sync"
 )
 
 //----------------------Options for Pad---NewPad(StorePad),Delete,Rename,EmptyDocument---------------------------
@@ -13,7 +14,8 @@ type Pad_info struct{
 	ID string 	`json:"id"`
 	Name string 	`json:"name"`
 	Value string 	`json:"value"`
-	Need_upd bool 
+	Needs_flushing bool 
+	can_write_to_file sync.Mutex
 }
 
 
@@ -47,16 +49,18 @@ func (p *Pad_info) Get_Contents()(er error){
 */
 func (p *Pad_info) Update_file() (er error){
 	if p.Need_upd{
+		p.can_write_to_file.Lock()
 		filePath := "./SavedFiles/"+p.ID+".txt"
 		if er = ioutil.WriteFile(filePath, []byte(p.Value), 0666); er!=nil{
 			fmt.Println("Could not update file ", p.ID ,er)
 		}else{
-			p.Need_upd = false
+			p.Needs_flushing = false
 		}
+		p.can_write_to_file.Unlock()
 	}
 	return
 }
 
 func (p *Pad_info) Need_update(){
-	p.Need_upd = true
+	p.Needs_flushing = true
 }
