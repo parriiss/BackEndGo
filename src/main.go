@@ -58,7 +58,7 @@ func main() {
 		mutex will come in handy and a mutex for slice access
 		is possibly necessary
 	*/
-	Init_Editor()
+	go Init_Editor()
 
 	//close channel when done
 	defer Requests.CloseChannel()
