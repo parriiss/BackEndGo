@@ -30,29 +30,11 @@ type Client_Put struct {
 	Notepad_ID string	`json:Pad_ID`
 }
 
-// struct for decoding DELETE  request json from client   
-type Client_Dlt struct {
-	// for out-of-order requests
-	Req_date time.Time 	`json:"Req_date"`
-
-	// offset for write/start-of-insert/start-of-delete
-	OffsetFrom int 		`json:"Start"`
-
-	// offset for end-of-insert/end-of-delete
-	OffsetTo int 		`json:"End"`
-
-	// notepadID request is referring to
-	Notepad_ID string	`json:Pad_ID`
-}
 
 // struct for using client JSON for server use 
 type Editor_req struct {
 	// for out-of-order requests
 	Req_date time.Time
-
-	// what type of update server is doing
-	// unecessary??
-	Req_type put_req
 
 	// value for writing/inserting
 	Val string
