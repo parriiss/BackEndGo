@@ -13,11 +13,13 @@ package main
 		~define better API endponts
 			what requests are expected???
 
-		~need to keep content of notepad in file
-		~need to setup sql for metadata
+		~need to keep content of notepad in file	DONE
+		~need to setup sql for metadata	DONE
 		~define all model structs
 		~make struct that holds users connected to pad and pad contents
-		~keep slice of open notepads
+		~keep map of open notepads	DONE
+		~check that request offsets are in document contents bound		**IMPOTANT**
+		~Change request handling to only Write requests			**IMPOTANT**
 */
 
 import (
@@ -56,7 +58,7 @@ func main() {
 		mutex will come in handy and a mutex for slice access
 		is possibly necessary
 	*/
-	go Handle_Requests()
+	Init_Editor()
 
 	//close channel when done
 	defer Requests.CloseChannel()
@@ -93,7 +95,6 @@ func handleURLS(r *httprouter.Router) {
 
 	//	DELETE
 	// r.DELETE(<URL1> , <function>)
-	r.DELETE("/Edit", c.Upd_DLT)
 	// ....
 
 }
@@ -122,181 +123,110 @@ func handleURLS(r *httprouter.Router) {
 	lost if server goes down for some reason)
 	write into file serverside
 */
-func Handle_Requests() {
-	var next_upd, next_serve time.Time
-	// run while server is UP
+func Init_Editor() {
+	
+	// init timer for updating pad files in disk every 30 secs
+	go func (){
+		writeFiles := time.NewTicker(30*time.Second)
+		for _ = range writeFiles.C{
+			write_to_pad_files()			
+		}
+	}()
 
-	// update_Files every 1 min
-	next_upd = time.Now().Add(addDur(0, 1, 0))
+	// init timer for serving reqs (write in pad value) every 5 secs
+	go func (){
+		serve_request := time.NewTicker(5*time.Second)
+		for _  = range serve_request.C{
+			serve_reqs()			
+		}
+	}()
 
-	// serve reqs every 5 secs
-	next_serve = time.Now().Add(addDur(0, 0, 5))
-	for {
+
+	//  start accepting requests
+	for{	
 		r, ok := <-Requests.In
 		if ok {
 			SavedReq_Mux.Lock()
+			// save request for sorting and serving
 			Saved_requests = append(Saved_requests, r)
 			SavedReq_Mux.Unlock()
-			// right request has arrived
 		}
-
-		/*
-			Timer to update files after 1 min
-		*/
-
-		if next_serve.After(time.Now()) {
-			serve_reqs()
-			// next requests serve will happen after 5 s
-			next_serve = time.Now().Add(addDur(0, 0, 5))
-		}
-
-		if next_upd.After(time.Now()) {
-			update_Files()
-			// next update will come after 1 min
-			next_upd = time.Now().Add(addDur(0, 1, 0))
-		}
-
 	}
 }
+
 
 // serve the saved requests that have arrived
 // actually edit notepad files
 // is called every 5sec for each Handle_Requests go routine
 func serve_reqs() {
 
-	/*
-		TODO:
-			***IMPORTANT***
-
-			~Changes in file should be boadcasted to every
-			implementation of getPadHistory function
-			user connected to the editted notepad
-			(broadcast AFTER files changed)
-
-	*/
-
-	// unecessary if only one Hanlde_Requests routine is called
-	// unlocks access to Saved_Requests for serving
+	// empty slice -OR- no requests have arrived	
+	if len(Saved_requests) == 0 {	return	}
+	
 	SavedReq_Mux.Lock()
-
-	/*
-			Either:
-		 		another serve_reqs called from handle routine
-		 			has emptied slice and unlocked mutex
-			OR
-				no requests have arrived
-	*/
-	if len(Saved_requests) == 0 {
-		SavedReq_Mux.Unlock()
-		return
-	}
-
-	// sort requests by time they were created so
-	// editing in files can be done in the right order
+	
+	/* 	sort requests by time they were created so
+	 	editing in files can be done in the right order	*/
+	
+	// fmt.Println("Requests before:", Saved_requests)
 	sort.Sort(Requests.Oldest_First(Saved_requests))
+	// fmt.Println("Requests After:", Saved_requests)
 
-	// if request that I'm expecting is saved
-	//  possible to have multiple out of order
-	for i, v := range Saved_requests {
-		switch v.Req_type {
-		case Requests.Dlt:
-			/*
-				Delete from file:
-					delete contents of file from
-					r.OffsetFrom till r.OffsetTo
+	for _, v := range Saved_requests {
 
-				possibility to call routines for faster
-				response???
-
-				TODO:
-					~handle errors
-			*/
-			if er := doDelete(v.Notepad_ID, v); er == nil {
-				// remove served request
-				Saved_requests = append(Saved_requests[:i],
-					Saved_requests[i+1:]...)
-			} else {
-				fmt.Println("Error at serving requests:\n\t", er)
+			/*	write into file r.Value at position r.OffsetFrom:
+				paste: many chars to specific loc
+				inpt: one char to location		*/
+			if er := write_to_pad(v.Notepad_ID, v); er != nil {
+				fmt.Println("Error at serving request:\n\t",  v,"\n\t",er)
 			}
-		case Requests.Wr:
-			/*
-				write into file r.Value at position r.OffsetFrom:
-					paste: many chars to specific loc
-					inpt: one char to location
-
-
-				TODO:
-					~handle errors
-			*/
-			if er := doWrite(v.Notepad_ID, v); er == nil {
-				// remove served requesr
-				Saved_requests = append(Saved_requests[:i],
-					Saved_requests[i+1:]...)
-			} else {
-				fmt.Println("Error at serving requests:\n\t", er)
-			}
-
-		default:
-			fmt.Println("Unknown req, in serve reqs: ", v.Req_type)
-		} /*End of Switch*/
-	} /*End of for*/
+			// remove request ( POP )
+			Saved_requests = append(Saved_requests[:0],
+					Saved_requests[1:]...)
+	}
 	SavedReq_Mux.Unlock()
 }
 
+
 /*
-	Parse request received and write value in pad's value that is
-	that is kept at global PadMap (controllers.go)
+	Parse request received and update pad that is kept at
+	global PadMap (controllers.go)
+
+	Checks are made so that request position are not out of 
+	pad contents' bounds
 */
-func doWrite(pad_id string, req Requests.Editor_req) (er error) {
+func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
+
+	// update pad from map
 	if pad, ok := control.PadMap[pad_id]; ok {
-		//change value of pad in  mem
-		pad.Value = pad.Value[:req.OffsetFrom] + req.Val + pad.Value[req.OffsetFrom:]
-		pad.Need_update()
+		if ( req.OffsetFrom < 0 || req.OffsetFrom > len(pad.Value) ||
+				req.OffsetTo < 0 || req.OffsetTo > len(pad.Value) ) {
+			
+			er = errors.New( fmt.Sprintf("Bad request (out of bounds) %v" , req) )
+			return
+		}
+		
+		pad.Value = pad.Value[:req.OffsetFrom] +req.Val+ pad.Value[req.OffsetTo:]	
+		
+		// signal that pad needs flushing to disk
+		pad.Needs_flushing = true
 		control.PadMap[pad_id] = pad
 	} else {
-		er = errors.New("Could not find ID:" + pad_id)
+		er = errors.New("Could not find pad:" + pad_id)
 	}
 
 	return
 }
 
 /*
-	Parse request received and delete from pad that is
-	that is kept at global PadMap (controllers.go)
-	the chars requested
+	For all files that are active (being editted and not timed-out)
+	kept in the PadMap, update their file in disk
 */
-func doDelete(pad_id string, req Requests.Editor_req) (er error) {
-	if pad, ok := control.PadMap[pad_id]; ok {
-		pad.Value = pad.Value[:req.OffsetFrom] + pad.Value[req.OffsetTo:]
-		pad.Need_update()
-		control.PadMap[pad_id] = pad
-	} else {
-		er = errors.New("Could not find ID:" + pad_id)
-	}
-
-	return
-}
-
-func addDur(h, m, s int) time.Duration {
-	return time.Hour*time.Duration(h) + time.Minute*time.Duration(m) +
-		time.Second*time.Duration(s)
-}
-
-/*
-	For all files that are active (being editted and not timedout)
-	kept in the PadMap update the file they are referring to
-*/
-func update_Files() (er error) {
-	for _, pad := range control.PadMap {
-		if pad.Need_upd {
-			can_write_to_file.Lock()
-			if er = pad.Update_file(); er != nil {
-				can_write_to_file.Unlock()
+func write_to_pad_files() (er error){
+	for _, pad := range control.PadMap{
+		if er = pad.Update_file(); er!=nil{
 				fmt.Println("Error updating pad_file contents for ", pad.ID)
 				fmt.Println("\t------\n", er, "\t------\n")
-				break
-			}
-			can_write_to_file.Unlock()
 		}
 	}
 	return
