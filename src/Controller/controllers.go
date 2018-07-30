@@ -113,7 +113,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 					errorMessage = "cant find pad name in db"
 					errorFlag = true
 				} else {
-					pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, false}
+					pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString,nil, false}
 					//insert in db info about user started session
 					//time format
 					logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
@@ -139,7 +139,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	}
 	w.WriteHeader(200)
 	if errorFlag == true {
-		pad = Pad.Pad_info{"", "", errorMessage, false}
+		pad = Pad.Pad_info{"", "", errorMessage,nil, false}
 		w.WriteHeader(500)
 	} else {
 		//add the user to the global map logedInUsers
@@ -284,9 +284,9 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	w.Header().Set("Content-Type", "application/json")
 
 	c_req := Requests.Client_Put{}
-	s_req := Requests.Editor_req{}
 
 	if er := json.NewDecoder(r.Body).Decode(&c_req); er != nil {
+		defer r.Body.Close()
 		fmt.Println("Error in decoding json in write Parse_requests\n", er)
 		w.WriteHeader(400)
 		return
@@ -298,19 +298,51 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		wrong data to client
 	*/
 
-	s_req = Requests.Editor_req{
-		Req_date:   c_req.Req_date,
-		Val:        c_req.Val,
-		OffsetFrom: c_req.OffsetFrom,
-		OffsetTo:   c_req.OffsetTo,
-		Notepad_ID: c_req.Notepad_ID,
-		// add user IP address  
-	}
+	if !c_req.Is_update_request{
+		// 	put req in channel for routine to handle
+		Requests.In <- Requests.Editor_req{
+			Req_date:   c_req.Req_date,
+			Val:        c_req.Val,
+			OffsetFrom: c_req.OffsetFrom,
+			OffsetTo:   c_req.OffsetTo,
+			Notepad_ID: c_req.Notepad_ID,
+			// add user IP address  
+		}
 
-	// 	put req in channel for routine to handle
-	Requests.In <- s_req
-	
-	w.WriteHeader(202)
+		w.WriteHeader(202)
+	}else{
+		
+		if pad,ok := PadMap[c_req.Notepad_ID] ; ok{
+			// no updates to return
+			if len(pad.Updates) == 0 {
+				//  return http status no content
+				w.WriteHeader(204)
+				return
+			}
+			
+
+			// response json
+			rj ,er := json.Marshal(pad.Updates)
+			if er != nil{
+				// failed to mashal json
+				w.WriteHeader(500)
+				return
+			}
+
+			// flush pad updates
+			pad.Rmv_Updates()
+
+			// save pad free of updates
+			PadMap[c_req.Notepad_ID] = pad
+			fmt.Fprintf(w, "%s", rj)
+			w.WriteHeader(200)
+		}else{
+			fmt.Println("Pad:", c_req.Notepad_ID ," not found")
+			// requested pad not found
+			w.WriteHeader(404)
+		}
+
+	}
 }
 
 var pad_num = 0
@@ -346,7 +378,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	// increment pad name int for next pad creation
 	pad_num++
 
-	PadMap[str] = &Pad.Pad_info{str, s, "",false}
+	PadMap[str] = &Pad.Pad_info{str, s, "",nil,false}
 	f := "./SavedFiles/" + str + ".txt"
 	_, er = os.Create(f)
 	if er != nil {
