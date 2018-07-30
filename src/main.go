@@ -23,9 +23,10 @@ package main
 */
 
 import (
-	"./Controller"
 	"./model/DataBaseInfo"
 	"./model/Requests"
+	"./model/Pad_info"
+	"./Controller"
 	"errors"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
@@ -199,15 +200,15 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 
 	// update pad from map
 	if pad, ok := control.PadMap[pad_id]; ok {
-		if ( req.OffsetFrom < 0 || req.OffsetFrom > len(pad.Value) ||
-				req.OffsetTo < 0 || req.OffsetTo > len(pad.Value) ) {
+		if ( req.OffsetFrom > uint(len(pad.Value)) || req.OffsetTo > uint(len(pad.Value)) ) {
 			
 			er = errors.New( fmt.Sprintf("Bad request (out of bounds) %v" , req) )
 			return
 		}
 		
 		pad.Value = pad.Value[:req.OffsetFrom] +req.Val+ pad.Value[req.OffsetTo:]	
-		
+		pad.Updates = append(pad.Updates , Pad.Pad_update{req.Val , req.OffsetFrom, req.OffsetTo})
+
 		// signal that pad needs flushing to disk
 		pad.Needs_flushing = true
 		control.PadMap[pad_id] = pad

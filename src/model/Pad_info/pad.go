@@ -9,11 +9,26 @@ import (
 	"os"
 )
 
+type Pad_update struct{
+	Value string 	`json:"value"`
+	Start	uint 	`json:"start"`
+	End	uint 	`json:"end"`
+}
+
 type Pad_info struct{
 	ID string 	`json:"id"`
 	Name string 	`json:"name"`
 	Value string 	`json:"value"`
-	Needs_flushing bool 
+	Updates []Pad_update
+	Needs_flushing bool
+}
+
+func (p *Pad_info) Add_update(v string , s , e uint ){
+	p.Updates = append(p.Updates , Pad_update{v, s ,e })
+}
+
+func (p *Pad_info) Rmv_Updates(){
+	p.Updates = nil
 }
 
 

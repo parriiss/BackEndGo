@@ -22,13 +22,16 @@ type Client_Put struct {
 	Val string 		`json:"Value"`
 
 	// offset for write/start-of-insert/start-of-delete
-	OffsetFrom int 		`json:"Start"`
+	OffsetFrom uint 		`json:"Start"`
 
 	// offset for end-of-insert/end-of-delete
-	OffsetTo int 		`json:"End"`
+	OffsetTo uint 		`json:"End"`
 
 	// notepadID request is referring to
 	Notepad_ID string	`json:Pad_ID`
+
+	// signal for polling if true send back Pad updates
+	Is_update_request bool	`json:"is_update"`
 }
 
 
@@ -42,11 +45,11 @@ type Editor_req struct {
 
 	// offset for write/start-of-insert/start-of-delete
 	// negative vals??
-	OffsetFrom int
+	OffsetFrom uint
 
 	// offset for end-of-insert/end-of-delete
 	// negative vals??
-	OffsetTo int
+	OffsetTo uint
 
 	// notepadID request is referring to
 	Notepad_ID string
