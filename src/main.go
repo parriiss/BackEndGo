@@ -23,9 +23,10 @@ package main
 */
 
 import (
-	"./Controller"
 	"./model/DataBaseInfo"
 	"./model/Requests"
+	"./model/Pad_info"
+	"./Controller"
 	"errors"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
@@ -82,8 +83,6 @@ func handleURLS(r *httprouter.Router) {
 	// r.POST(<URL1> , <function>)
 	r.POST("/PadHistory", c.GetPadHistory)
 	r.POST("/NewPad", c.CreateNewPad)
-	r.POST("/RenameFile", c.RenameFile)
-	r.POST("/EmptyDocument", c.EmptyDocument)
 	// ....
 	// ...
 	// .
@@ -97,7 +96,6 @@ func handleURLS(r *httprouter.Router) {
 
 	//	DELETE
 	// r.DELETE(<URL1> , <function>)
-	r.DELETE("/DeleteFile", c.DeleteFile)
 	// ....
 
 }
@@ -127,25 +125,26 @@ func handleURLS(r *httprouter.Router) {
 	write into file serverside
 */
 func Init_Editor() {
-
+	
 	// init timer for updating pad files in disk every 30 secs
-	go func() {
-		writeFiles := time.NewTicker(30 * time.Second)
-		for _ = range writeFiles.C {
-			write_to_pad_files()
+	go func (){
+		writeFiles := time.NewTicker(30*time.Second)
+		for _ = range writeFiles.C{
+			write_to_pad_files()			
 		}
 	}()
 
 	// init timer for serving reqs (write in pad value) every 5 secs
-	go func() {
-		serve_request := time.NewTicker(5 * time.Second)
-		for _ = range serve_request.C {
-			serve_reqs()
+	go func (){
+		serve_request := time.NewTicker(5*time.Second)
+		for _  = range serve_request.C{
+			serve_reqs()			
 		}
 	}()
 
+
 	//  start accepting requests
-	for {
+	for{	
 		r, ok := <-Requests.In
 		if ok {
 			SavedReq_Mux.Lock()
@@ -156,59 +155,59 @@ func Init_Editor() {
 	}
 }
 
+
 // serve the saved requests that have arrived
 // actually edit notepad files
 // is called every 5sec for each Handle_Requests go routine
 func serve_reqs() {
 
-	// empty slice -OR- no requests have arrived
-	if len(Saved_requests) == 0 {
-		return
-	}
-
+	// empty slice -OR- no requests have arrived	
+	if len(Saved_requests) == 0 {	return	}
+	
 	SavedReq_Mux.Lock()
-
+	
 	/* 	sort requests by time they were created so
-	editing in files can be done in the right order	*/
-
+	 	editing in files can be done in the right order	*/
+	
 	// fmt.Println("Requests before:", Saved_requests)
 	sort.Sort(Requests.Oldest_First(Saved_requests))
 	// fmt.Println("Requests After:", Saved_requests)
 
 	for _, v := range Saved_requests {
 
-		/*	write into file r.Value at position r.OffsetFrom:
-			paste: many chars to specific loc
-			inpt: one char to location		*/
-		if er := write_to_pad(v.Notepad_ID, v); er != nil {
-			fmt.Println("Error at serving request:\n\t", v, "\n\t", er)
-		}
-		// remove request ( POP )
-		Saved_requests = append(Saved_requests[:0],
-			Saved_requests[1:]...)
+			/*	write into file r.Value at position r.OffsetFrom:
+				paste: many chars to specific loc
+				inpt: one char to location		*/
+			if er := write_to_pad(v.Notepad_ID, v); er != nil {
+				fmt.Println("Error at serving request:\n\t",  v,"\n\t",er)
+			}
+			// remove request ( POP )
+			Saved_requests = append(Saved_requests[:0],
+					Saved_requests[1:]...)
 	}
 	SavedReq_Mux.Unlock()
 }
+
 
 /*
 	Parse request received and update pad that is kept at
 	global PadMap (controllers.go)
 
-	Checks are made so that request position are not out of
+	Checks are made so that request position are not out of 
 	pad contents' bounds
 */
 func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 
 	// update pad from map
 	if pad, ok := control.PadMap[pad_id]; ok {
-		if req.OffsetFrom < 0 || req.OffsetFrom > len(pad.Value) ||
-			req.OffsetTo < 0 || req.OffsetTo > len(pad.Value) {
-
-			er = errors.New(fmt.Sprintf("Bad request (out of bounds) %v", req))
+		if ( req.OffsetFrom > uint(len(pad.Value)) || req.OffsetTo > uint(len(pad.Value)) ) {
+			
+			er = errors.New( fmt.Sprintf("Bad request (out of bounds) %v" , req) )
 			return
 		}
-
-		pad.Value = pad.Value[:req.OffsetFrom] + req.Val + pad.Value[req.OffsetTo:]
+		
+		pad.Value = pad.Value[:req.OffsetFrom] +req.Val+ pad.Value[req.OffsetTo:]	
+		pad.Updates = append(pad.Updates , Pad.Pad_update{req.Val , req.OffsetFrom, req.OffsetTo})
 
 		// signal that pad needs flushing to disk
 		pad.Needs_flushing = true
@@ -224,11 +223,11 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 	For all files that are active (being editted and not timed-out)
 	kept in the PadMap, update their file in disk
 */
-func write_to_pad_files() (er error) {
-	for _, pad := range control.PadMap {
-		if er = pad.Update_file(); er != nil {
-			fmt.Println("Error updating pad_file contents for ", pad.ID)
-			fmt.Println("\t------\n", er, "\t------\n")
+func write_to_pad_files() (er error){
+	for _, pad := range control.PadMap{
+		if er = pad.Update_file(); er!=nil{
+				fmt.Println("Error updating pad_file contents for ", pad.ID)
+				fmt.Println("\t------\n", er, "\t------\n")
 		}
 	}
 	return
