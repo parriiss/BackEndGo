@@ -22,7 +22,7 @@ type Client_Put struct {
 	Val string 		`json:"Value"`
 
 	// offset for write/start-of-insert/start-of-delete
-	OffsetFrom uint 		`json:"Start"`
+	OffsetFrom uint 	`json:"Start"`
 
 	// offset for end-of-insert/end-of-delete
 	OffsetTo uint 		`json:"End"`
