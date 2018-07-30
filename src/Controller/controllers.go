@@ -2,20 +2,6 @@
 
 package control
 
-/*
-	TODO:
-		~implement new notepad functionality
-
-		~implement editting functionality
-			~users currently viewing/editting file
-			~updating db file
-
-		~ implement settings
-			~clear contents of file
-			~dlt doc
-			~change doc tittle
-			~history of all people that viewed/editted doc
-*/
 
 import (
 	//"../model/DataBaseInfo"
@@ -318,6 +304,7 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		OffsetFrom: c_req.OffsetFrom,
 		OffsetTo:   c_req.OffsetTo,
 		Notepad_ID: c_req.Notepad_ID,
+		// add user IP address  
 	}
 
 	// 	put req in channel for routine to handle

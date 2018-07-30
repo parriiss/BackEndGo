@@ -4,11 +4,11 @@ package Pad
 
 import (
 	"io/ioutil"
+	"errors"
 	"fmt"
 	"os"
 )
 
-//----------------------Options for Pad---NewPad(StorePad),Delete,Rename,EmptyDocument---------------------------
 type Pad_info struct{
 	ID string 	`json:"id"`
 	Name string 	`json:"name"`
@@ -25,7 +25,7 @@ func (p *Pad_info) Get_Contents()(er error){
 	filePath := "./SavedFiles/"+p.ID+".txt"
 	file,er:= os.Open(filePath)
 	if er!=nil{
-		fmt.Println("Error opening ",filePath," check if exists")
+		fmt.Println("Error opening ",filePath, "\n", er)
 		return
 	}
 
@@ -37,6 +37,16 @@ func (p *Pad_info) Get_Contents()(er error){
 
 	p.Value = string(data)
 	return
+}
+
+/*	Return a sub-string of value of pad according to start & end offsets	*/
+func (p Pad_info) Get_Part(start , end int) (s string , er error){
+	if (start < 0 || start > len(p.Value) || end < 0 || end > len(p.Value) ){
+		er = errors.New("Out of bounds")
+	}
+	s = p.Value[start:end]
+
+	return 
 }
 
 
@@ -53,6 +63,8 @@ func (p *Pad_info) Update_file() (er error){
 		}else{
 			p.Needs_flushing = false
 		}
+
 	}
+
 	return
 }
