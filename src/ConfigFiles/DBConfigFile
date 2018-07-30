@@ -1,7 +1,0 @@
-{
-    "username"  : "root",
-    "password"  : "root",
-    "port"      : "3306",    
-    "dbName"    : "onlineEditor",
-    "ip"        : "127.0.0.1"     
-}

@@ -1,4 +1,4 @@
-// main.go
+	// main.go
 
 package main
 
@@ -45,7 +45,7 @@ var SavedReq_Mux sync.Mutex
 func main() {
 
 	DataBaseInfo.LoadDBInfo()
-
+	fmt.Println(DataBaseInfo.DBLogInString() )
 	r := httprouter.New()
 
 	// init API
