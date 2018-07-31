@@ -16,19 +16,19 @@ const (
 // struct for decoding PUT request json from client   
 type Client_Put struct {
 	// for out-of-order requests
-	Req_date time.Time 	`json:"Req_date"`
+	Req_date time.Time 		`json:"Req_date"`
 
 	// value for witing/inserting
-	Val string 		`json:"Value"`
+	Val string 			`json:"Value"`
 
 	// offset for write/start-of-insert/start-of-delete
-	OffsetFrom uint 	`json:"Start"`
+	OffsetFrom uint 		`json:"Start"`
 
 	// offset for end-of-insert/end-of-delete
-	OffsetTo uint 		`json:"End"`
+	OffsetTo uint 			`json:"End"`
 
 	// notepadID request is referring to
-	Notepad_ID string	`json:Pad_ID`
+	Notepad_ID string		`json:"Pad_ID"`
 
 	// signal for polling if true send back Pad updates
 	Is_update_request bool	`json:"is_update"`

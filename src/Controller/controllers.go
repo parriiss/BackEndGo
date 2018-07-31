@@ -284,7 +284,6 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	w.Header().Set("Content-Type", "application/json")
 
 	c_req := Requests.Client_Put{}
-
 	if er := json.NewDecoder(r.Body).Decode(&c_req); er != nil {
 		defer r.Body.Close()
 		fmt.Println("Error in decoding json in write Parse_requests\n", er)
@@ -297,15 +296,16 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		possible error json checking here for quick response of
 		wrong data to client
 	*/
+	fmt.Println("PAD:",c_req.Notepad_ID)
 
 	if !c_req.Is_update_request{
 		// 	put req in channel for routine to handle
 		Requests.In <- Requests.Editor_req{
-			Req_date:   c_req.Req_date,
-			Val:        c_req.Val,
-			OffsetFrom: c_req.OffsetFrom,
-			OffsetTo:   c_req.OffsetTo,
-			Notepad_ID: c_req.Notepad_ID,
+			Req_date:   	c_req.Req_date,
+			Val:        	c_req.Val,
+			OffsetFrom: 	c_req.OffsetFrom,
+			OffsetTo:   	c_req.OffsetTo,
+			Notepad_ID: 	c_req.Notepad_ID,
 			// add user IP address  
 		}
 
