@@ -11,7 +11,6 @@ import (
 type DataBaseInfo struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	Port     string `json:"port"`
 	DBName   string `json:"dbName"`
 	Ip       string `json:"ip"`
 }
@@ -25,7 +24,7 @@ var DBInfo DataBaseInfo
 	the infos in DBconfigFile are in json format
 */
 func LoadDBInfo() {
-	file, err := os.Open("ConfigFiles/DBConfigFile")
+	file, err := os.Open("../ConfigFiles/DBConfigFile")
 	if err != nil {
 		fmt.Println("error in DBConfigFile")
 		return
@@ -33,6 +32,7 @@ func LoadDBInfo() {
 	defer file.Close()
 	byteValue, _ := ioutil.ReadAll(file)
 	json.Unmarshal(byteValue, &DBInfo)
+	fmt.Println("db info:" ,DBInfo)
 }
 
 /*
@@ -42,7 +42,5 @@ sql.open command as second argument
 example :: sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/onlineEditor")
 */
 func DBLogInString() string {
-	logInString := DBInfo.Username + ":" + DBInfo.Password + "@tcp(" +
-		DBInfo.Ip + ":" + DBInfo.Port + ")/" + DBInfo.DBName
-	return logInString
+	return DBInfo.Username+ ":"+DBInfo.Password+"@/"+DBInfo.DBName
 }
