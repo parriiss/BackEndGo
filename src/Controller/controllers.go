@@ -71,79 +71,79 @@ func (c Controller) LoadPadFromFile(padId string) (string, error) {
   the info and value of padFile according
   to pad id
 
-  In case of error return as value of
-  pad a message according to the error
-  and 500 error in the header
+  Respond back with:
+        StatusCode:200 Success,Ok
+        StatusCode:500 Server Error(Error in DB)
+        StatusCode:404 Could not find pad or pad-file
 
-  TODO: change return to json with {pad, msg}
 */
 func (c Controller) LoadPad(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
-	errorFlag := false
-	errorMessage := ""
+	var err error
+	var fileAsString string
 	//request
 	padRequest := PadRequest{p.ByName("id")}
 	//answer
 	var pad Pad.Pad_info
-	fileAsString, err := c.LoadPadFromFile(padRequest.Id)
+	if PadMap[padRequest.Id] != nil {
+		fileAsString = PadMap[padRequest.Id].Value
+		err = nil
+	} else {
+		fileAsString, err = c.LoadPadFromFile(padRequest.Id)
+	}
 	if err != nil {
-		errorMessage = "File not exist"
-		errorFlag = true
-	} else {
-		//request in database for name
-		db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
-		if err != nil {
-			errorMessage = "cant open db"
-			errorFlag = true
-		} else {
-			defer db.Close()
-			stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
-			if err != nil {
-				errorMessage = "error db"
-				errorFlag = true
-			} else {
-				var fileName string
-				err = stmt.QueryRow(padRequest.Id).Scan(&fileName)
-				if err != nil {
-					errorMessage = "cant find pad name in db"
-					errorFlag = true
-				} else {
-					pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, nil, false}
-					//insert in db info about user started session
-					//time format
-					logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
-					userIp := string(r.RemoteAddr)
-					//state=1 :: started session
-					state := 1
-					//keep the pad in the global pad map
-					PadMap[padRequest.Id] = &pad
-					stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
-					if err != nil {
-						errorMessage = "error db"
-						errorFlag = true
-					} else {
-						_, err = stmt.Exec(userIp, padRequest.Id, logInTime, state)
-						if err != nil {
-							errorMessage = "error db"
-							errorFlag = true
-						}
-					}
-				}
-			}
-		}
+		//file not exist
+		w.WriteHeader(404)
+		return
 	}
-	w.WriteHeader(200)
-	if errorFlag == true {
-		pad = Pad.Pad_info{"", "", errorMessage, nil, false}
+	//request in database for name
+	db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
+	if err != nil {
+		//cant open db
 		w.WriteHeader(500)
-	} else {
-		//add the user to the global map logedInUsers
-		userIp := string(r.RemoteAddr)
-		LogedInUsers.InsertUserIp(userIp, padRequest.Id)
+		return
 	}
+	defer db.Close()
+	stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
+	if err != nil {
+		//db error
+		w.WriteHeader(500)
+		return
+	}
+	var fileName string
+	err = stmt.QueryRow(padRequest.Id).Scan(&fileName)
+	if err != nil {
+		//db error
+		w.WriteHeader(500)
+		return
+	}
+	pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, nil, false}
+	//insert in db info about user started session
+	//time format
+	logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
+	userIp := string(r.RemoteAddr)
+	//state=1 :: started session
+	state := 1
+	//keep the pad in the global pad map
+	PadMap[padRequest.Id] = &pad
+	stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
+	if err != nil {
+		//db error
+		w.WriteHeader(500)
+		return
+	}
+	_, err = stmt.Exec(userIp, padRequest.Id, logInTime, state)
+	if err != nil {
+		//db error
+		w.WriteHeader(500)
+		return
+	}
+	//add the user to the global map logedInUsers
+	w.WriteHeader(200)
+	LogedInUsers.InsertUserIp(userIp, padRequest.Id)
 	jsonAnswer, err := json.Marshal(pad)
 	fmt.Fprintf(w, "%s", jsonAnswer)
 }
@@ -295,18 +295,18 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		wrong data to client
 	*/
 
-	fmt.Println("PAD:",c_req.Notepad_ID)
+	fmt.Println("PAD:", c_req.Notepad_ID)
 
 	if !c_req.Is_update_request {
 		// 	put req in channel for routine to handle
 		Requests.In <- Requests.Editor_req{
 
-			Req_date:   	c_req.Req_date,
-			Val:        	c_req.Val,
-			OffsetFrom: 	c_req.OffsetFrom,
-			OffsetTo:   	c_req.OffsetTo,
-			Notepad_ID: 	c_req.Notepad_ID,
-			// add user IP address  
+			Req_date:   c_req.Req_date,
+			Val:        c_req.Val,
+			OffsetFrom: c_req.OffsetFrom,
+			OffsetTo:   c_req.OffsetTo,
+			Notepad_ID: c_req.Notepad_ID,
+			// add user IP address
 		}
 
 		w.WriteHeader(202)
