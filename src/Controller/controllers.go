@@ -2,26 +2,24 @@
 
 package control
 
-
 import (
 	//"../model/DataBaseInfo"
-	"github.com/julienschmidt/httprouter"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/lucasjones/reggen"
-	"../model/LogedInUsers"
 	"../model/DataBaseInfo"
+	"../model/LogedInUsers"
 	"../model/PadHistory"
-	"../model/Requests"
 	"../model/Pad_info"
-	"encoding/json"
+	"../model/Requests"
 	"database/sql"
-	"net/http"
-	"strconv"
-	"io/ioutil"
-	"time"
+	"encoding/json"
 	"fmt"
-	"os"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/julienschmidt/httprouter"
+	"github.com/lucasjones/reggen"
 	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"time"
 )
 
 // controller for requests (methods)
@@ -113,7 +111,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 					errorMessage = "cant find pad name in db"
 					errorFlag = true
 				} else {
-					pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString,nil, false}
+					pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, nil, false}
 					//insert in db info about user started session
 					//time format
 					logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
@@ -139,7 +137,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	}
 	w.WriteHeader(200)
 	if errorFlag == true {
-		pad = Pad.Pad_info{"", "", errorMessage,nil, false}
+		pad = Pad.Pad_info{"", "", errorMessage, nil, false}
 		w.WriteHeader(500)
 	} else {
 		//add the user to the global map logedInUsers
@@ -296,11 +294,13 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		possible error json checking here for quick response of
 		wrong data to client
 	*/
+
 	fmt.Println("PAD:",c_req.Notepad_ID)
 
-	if !c_req.Is_update_request{
+	if !c_req.Is_update_request {
 		// 	put req in channel for routine to handle
 		Requests.In <- Requests.Editor_req{
+
 			Req_date:   	c_req.Req_date,
 			Val:        	c_req.Val,
 			OffsetFrom: 	c_req.OffsetFrom,
@@ -310,20 +310,19 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		}
 
 		w.WriteHeader(202)
-	}else{
-		
-		if pad,ok := PadMap[c_req.Notepad_ID] ; ok{
+	} else {
+
+		if pad, ok := PadMap[c_req.Notepad_ID]; ok {
 			// no updates to return
 			if len(pad.Updates) == 0 {
 				//  return http status no content
 				w.WriteHeader(204)
 				return
 			}
-			
 
 			// response json
-			rj ,er := json.Marshal(pad.Updates)
-			if er != nil{
+			rj, er := json.Marshal(pad.Updates)
+			if er != nil {
 				// failed to mashal json
 				w.WriteHeader(500)
 				return
@@ -336,16 +335,14 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 			PadMap[c_req.Notepad_ID] = pad
 			fmt.Fprintf(w, "%s", rj)
 			w.WriteHeader(200)
-		}else{
-			fmt.Println("Pad:", c_req.Notepad_ID ," not found")
+		} else {
+			fmt.Println("Pad:", c_req.Notepad_ID, " not found")
 			// requested pad not found
 			w.WriteHeader(404)
 		}
 
 	}
 }
-
-var pad_num = 0
 
 var PadMap = make(map[string]*Pad.Pad_info)
 
@@ -362,9 +359,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	w.Header().Set("Content-Type", "application/json")
 
 	// fmt.Fprint(w,"CreateNewPad\n")
-	pad_num = len(PadMap)
-	s := strconv.Itoa(pad_num)
-	s = "Newpad" + s
+	s := "Newpad"
 	str, er := generate_Pad_Name()
 
 	if er != nil {
@@ -376,9 +371,8 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	}
 
 	// increment pad name int for next pad creation
-	pad_num++
 
-	PadMap[str] = &Pad.Pad_info{str, s, "",nil,false}
+	PadMap[str] = &Pad.Pad_info{str, s, "", nil, false}
 	f := "./SavedFiles/" + str + ".txt"
 	_, er = os.Create(f)
 	if er != nil {
@@ -388,7 +382,6 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 
 		// delete from map pad that could not create
 		// and reduce counter for name creation
-		pad_num--
 		delete(PadMap, str)
 		return
 	}
@@ -407,7 +400,6 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 
 		// delete from map pad that could not insert to db
 		// and reduce counter for name creation
-		pad_num--
 		delete(PadMap, str)
 
 		// delete file at server of pad that could not insert to db
@@ -589,14 +581,14 @@ func (c Controller) DeleteFile(w http.ResponseWriter, r *http.Request, _ httprou
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Println("----------\n", err)
-			return		
+			return
 		}
 
 		err = os.Remove(originalPath)
 		if err != nil {
-			if (os.IsNotExist(err)){
+			if os.IsNotExist(err) {
 				w.WriteHeader(404)
-			}else{
+			} else {
 				w.WriteHeader(500)
 			}
 			return
@@ -714,9 +706,9 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 	if val, ok := PadMap[t.ID]; ok {
 		fmt.Println("Empty Document : ", val.Name)
 		err := os.Truncate("./SavedFiles/"+PadMap[t.ID].ID+".txt", 0)
-		if(os.IsNotExist(err)){
+		if os.IsNotExist(err) {
 			w.WriteHeader(404)
-		}else{
+		} else {
 			w.WriteHeader(500)
 		}
 		return
