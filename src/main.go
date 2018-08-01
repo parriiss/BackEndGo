@@ -1,4 +1,4 @@
-// main.go
+	// main.go
 
 package main
 
@@ -45,7 +45,8 @@ var SavedReq_Mux sync.Mutex
 func main() {
 
 	DataBaseInfo.LoadDBInfo()
-	fmt.Println(DataBaseInfo.DBLogInString())
+
+	fmt.Println(DataBaseInfo.DBLogInString() )
 	r := httprouter.New()
 
 	// init API
@@ -148,7 +149,8 @@ func Init_Editor() {
 	//  start accepting requests
 	for {
 		r, ok := <-Requests.In
-		fmt.Println("Received Req:", r)
+
+		fmt.Println("Received Req:",r)
 		if ok {
 			SavedReq_Mux.Lock()
 			// save request for sorting and serving
@@ -176,18 +178,19 @@ func serve_reqs() {
 	// fmt.Println("Requests before:", Saved_requests)
 	sort.Sort(Requests.Oldest_First(Saved_requests))
 	// fmt.Println("Requests After:", Saved_requests)
-	fmt.Println("Serving Reqs:", Saved_requests)
+
+	fmt.Println("Serving Reqs:",Saved_requests)
 
 	for _, v := range Saved_requests {
-		/*	write into file r.Value at position r.OffsetFrom:
-			paste: many chars to specific loc
-			inpt: one char to location		*/
-		if er := write_to_pad(v.Notepad_ID, v); er != nil {
-			fmt.Println("Error at serving request:\n\t", v, "\n\t", er)
-		}
-		// remove request ( POP )
-		Saved_requests = append(Saved_requests[:0],
-			Saved_requests[1:]...)
+			/*	write into file r.Value at position r.OffsetFrom:
+				paste: many chars to specific loc
+				inpt: one char to location		*/
+			if er := write_to_pad(v.Notepad_ID, v); er != nil {
+				fmt.Println("Error at serving request:\n\t",  v,"\n\t",er)
+			}
+			// remove request ( POP )
+			Saved_requests = append(Saved_requests[:0],
+					Saved_requests[1:]...)
 	}
 	SavedReq_Mux.Unlock()
 }
