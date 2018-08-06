@@ -24,9 +24,9 @@ var DBInfo DataBaseInfo
 	the infos in DBconfigFile are in json format
 */
 func LoadDBInfo() {
-	file, err := os.Open("../ConfigFiles/DBConfigFile")
+	file, err := os.Open("./DBConfigFile")
 	if err != nil {
-		fmt.Println("error in DBConfigFile")
+		fmt.Println("Could not open configFile", err)
 		return
 	}
 	defer file.Close()
