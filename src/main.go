@@ -1,4 +1,4 @@
-	// main.go
+// main.go
 
 package main
 
@@ -23,30 +23,30 @@ package main
 */
 
 import (
-	"./Controller"
-	"./model/DataBaseInfo"
-	"./model/Pad_info"
-	"./model/Requests"
 	"errors"
 	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
+	"./Controller"
+	"./model/DataBaseInfo"
+	"./model/Pad_info"
+	"./model/Requests"
+	"github.com/julienschmidt/httprouter"
 )
 
 // map for saving possible out-of-order requsts
 var Saved_requests []Requests.Editor_req
 
-var can_write_to_file sync.Mutex
+// var can_write_to_file sync.Mutex
 var SavedReq_Mux sync.Mutex
 
 func main() {
 
 	DataBaseInfo.LoadDBInfo()
+	fmt.Println(DataBaseInfo.DBLogInString())
 
-	fmt.Println(DataBaseInfo.DBLogInString() )
 	r := httprouter.New()
 
 	// init API
@@ -149,8 +149,8 @@ func Init_Editor() {
 	//  start accepting requests
 	for {
 		r, ok := <-Requests.In
+		fmt.Println("Received Req:", r)
 
-		fmt.Println("Received Req:",r)
 		if ok {
 			SavedReq_Mux.Lock()
 			// save request for sorting and serving
@@ -175,22 +175,25 @@ func serve_reqs() {
 	/* 	sort requests by time they were created so
 	editing in files can be done in the right order	*/
 
-	// fmt.Println("Requests before:", Saved_requests)
+	fmt.Println("Requests before:", Saved_requests)
 	sort.Sort(Requests.Oldest_First(Saved_requests))
-	// fmt.Println("Requests After:", Saved_requests)
+	fmt.Println("Requests After:", Saved_requests)
 
-	fmt.Println("Serving Reqs:",Saved_requests)
+	fmt.Println("Serving Reqs:")
+	for _,val := range Saved_requests{
+		fmt.Println(val)
+	}
 
 	for _, v := range Saved_requests {
-			/*	write into file r.Value at position r.OffsetFrom:
-				paste: many chars to specific loc
-				inpt: one char to location		*/
-			if er := write_to_pad(v.Notepad_ID, v); er != nil {
-				fmt.Println("Error at serving request:\n\t",  v,"\n\t",er)
-			}
-			// remove request ( POP )
-			Saved_requests = append(Saved_requests[:0],
-					Saved_requests[1:]...)
+		/*	write into file r.Value at position r.OffsetFrom:
+			paste: many chars to specific loc
+			inpt: one char to location		*/
+		fmt.Println("Serving: ", v)
+		if er := write_to_pad(v.Notepad_ID, v); er != nil {
+			fmt.Println("Error at serving request:\n\t", v, "\n\t", er)
+		}
+		// remove request ( POP )
+		Saved_requests = Saved_requests[1:]
 	}
 	SavedReq_Mux.Unlock()
 }
@@ -207,7 +210,8 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 	// update pad from map
 	if pad, ok := control.PadMap[pad_id]; ok {
 		if req.OffsetFrom > uint(len(pad.Value)) || req.OffsetTo > uint(len(pad.Value)) {
-
+			fmt.Println("Value:",pad.Value, " Req_From:",  req.OffsetFrom,
+					" Req_To:", req.OffsetTo, "\n Bound:",len(pad.Value))
 			er = errors.New(fmt.Sprintf("Bad request (out of bounds) %v", req))
 			return
 		}

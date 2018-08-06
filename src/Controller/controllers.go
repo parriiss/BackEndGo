@@ -295,13 +295,13 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		wrong data to client
 	*/
 
-	fmt.Println("PAD:", c_req.Notepad_ID)
+	fmt.Println("Received req for pad:", c_req.Notepad_ID)
 
 	if !c_req.Is_update_request {
 		// 	put req in channel for routine to handle
 		Requests.In <- Requests.Editor_req{
 
-			Req_date:   c_req.Req_date,
+			Timestamp :   c_req.Timestamp,
 			Val:        c_req.Val,
 			OffsetFrom: c_req.OffsetFrom,
 			OffsetTo:   c_req.OffsetTo,
