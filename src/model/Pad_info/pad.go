@@ -23,16 +23,19 @@ type Pad_info struct {
 	Needs_flushing bool
 }
 
+// Append new update to slice in pad that keeps updates 
+// that have happened to later inform client at request
 func (p *Pad_info) Add_update(v string, s, e uint) {
 	p.Updates = append(p.Updates, Pad_update{v, s, e})
 }
 
+// Free the updates slice of pad
 func (p *Pad_info) Rmv_Updates() {
 	p.Updates = nil
 }
 
 /*
-	Get from file to pad.Value contents of file
+	Get file contents to pad.Value 
 */
 func (p *Pad_info) Get_Contents() (er error) {
 
