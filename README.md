@@ -1,4 +1,6 @@
-***IMPORTANT***
-	Handle situation where if a client requests updates they are removed from pad
-		bind updates to each client, get an idea of what updates each client has seen
-		and what not
+
+TODO:	
+	1. Finish documentation
+	2. Handle an error situation at pad edit 
+	3. Write INSTALL.md
+	3. Add timeout
