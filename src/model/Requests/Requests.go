@@ -2,9 +2,7 @@
 
 package Requests
 
-// import "time"
 
-// MOVE THESE  STRUCTS TO MODEL
 // struct to parse PUT request json
 type put_req string
 
@@ -40,21 +38,19 @@ type Editor_req struct {
 	// for out-of-order requests
 	Timestamp int 			
 
-	// value for writing/inserting
+	// value to be inserted
 	Val string
 
-	// offset for write/start-of-insert/start-of-delete
-	// negative vals??
+	// offset for start-of-insert/delete
 	OffsetFrom uint
 
-	// offset for end-of-insert/end-of-delete
-	// negative vals??
+	// offset for end-of-insert/delete
 	OffsetTo uint
 
-	// notepadID request is referring to
+	// notepad ID request is referring to
 	Notepad_ID string
 
-	// user Ip address
+	// user IP address
 	UserIp	string
 }
 

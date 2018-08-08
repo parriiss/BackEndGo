@@ -19,27 +19,27 @@ type DataBaseInfo struct {
 var DBInfo DataBaseInfo
 
 /*
-	function to read from DBconfigFile
-	the info of db
-	the infos in DBconfigFile are in json format
+	function to read from DBconfigFile 
+	json file the info of db
 */
 func LoadDBInfo() {
-	file, err := os.Open("./DBConfigFile")
+	path := "./DBConfigFile"
+	file, err := os.Open(path)
 	if err != nil {
-		fmt.Println("Could not open configFile", err)
+		fmt.Println("Could not open ",path , err)
 		return
 	}
 	defer file.Close()
-	byteValue, _ := ioutil.ReadAll(file)
-	json.Unmarshal(byteValue, &DBInfo)
+	
+	bs, _ := ioutil.ReadAll(file)
+	json.Unmarshal(bs, &DBInfo)
 	fmt.Println("db info:" ,DBInfo)
 }
 
 /*
-return the string we need to connect to db
-more specific return the string that we need in
-sql.open command as second argument
-example :: sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/onlineEditor")
+	Return the string we need to connect to db
+	string we need in sql.open as second argument
+	example :: sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/onlineEditor")
 */
 func DBLogInString() string {
 	return DBInfo.Username+ ":"+DBInfo.Password+"@/"+DBInfo.DBName

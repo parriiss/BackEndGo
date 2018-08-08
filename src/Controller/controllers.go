@@ -79,15 +79,18 @@ func (c Controller) LoadPadFromFile(padId string) (string, error) {
 */
 func (c Controller) LoadPad(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
-	var err error
-	var fileAsString string
+	
+	var (
+		err error
+		fileAsString string
+		pad Pad.Pad_info
+	)
+	
 	//request
 	padRequest := PadRequest{p.ByName("id")}
 	//answer
-	var pad Pad.Pad_info
 	if PadMap[padRequest.Id] != nil {
 		fileAsString = PadMap[padRequest.Id].Value
 		err = nil
@@ -99,6 +102,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		w.WriteHeader(404)
 		return
 	}
+
 	//request in database for name
 	db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
 	if err != nil {
@@ -107,6 +111,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		return
 	}
 	defer db.Close()
+	
 	stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
 	if err != nil {
 		//db error
@@ -121,14 +126,14 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		return
 	}
 	pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, nil, false}
-	//insert in db info about user started session
+	
 	//time format
 	logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
 	userIp := string(r.RemoteAddr)
 	//state=1 :: started session
 	state := 1
-	//keep the pad in the global pad map
-	PadMap[padRequest.Id] = &pad
+	
+	//insert in db info about user started session	
 	stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
 	if err != nil {
 		//db error
@@ -141,6 +146,10 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		w.WriteHeader(500)
 		return
 	}
+
+	//keep the pad in the global pad map
+	PadMap[padRequest.Id] = &pad
+	
 	//add the user to the global map logedInUsers
 	w.WriteHeader(200)
 	LogedInUsers.InsertUserIp(userIp, padRequest.Id)
@@ -170,9 +179,9 @@ func (c Controller) GetLoggedInUsers(w http.ResponseWriter,
 */
 func (c Controller) GetPadHistory(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
+
 	errorFlag := false
 	errorMessage := ""
 	//values of table historyFiles in DB
@@ -245,7 +254,6 @@ func (c Controller) GetPadHistory(w http.ResponseWriter,
 		500-->error in json.Marshal
 
 */
-
 func (c Controller) About(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -267,10 +275,10 @@ func (c Controller) About(w http.ResponseWriter,
 }
 
 /*
-	The only change between PUT and delete is that in server side
-	the request that is passed to handler is of different type:
-		(DELETE: Request.Dlt PUT: Request.Wr)
-
+	Pass the incoming request to channel in order to save it 
+	and serve later all saved requests in the order they were
+	created (solve case of out-of-order arrival ) 
+		
 	http response header status:
 		202-->request received for processing
 			not yet served
@@ -282,6 +290,10 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	w.Header().Set("Content-Type", "application/json")
 
 	c_req := Requests.Client_Put{}
+	/*
+		possible error json checking here for quick response of
+		wrong data to client
+	*/
 	if er := json.NewDecoder(r.Body).Decode(&c_req); er != nil {
 		defer r.Body.Close()
 		fmt.Println("Error in decoding json in write Parse_requests\n", er)
@@ -289,11 +301,6 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		return
 	}
 	defer r.Body.Close()
-
-	/*
-		possible error json checking here for quick response of
-		wrong data to client
-	*/
 
 	fmt.Println("Received req for pad:", c_req.Notepad_ID)
 
@@ -328,7 +335,9 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 				return
 			}
 
-			// flush pad updates
+			// flush pad updates 
+			//  must check first if all users that are connected 
+			// have the updates (maybe check if any need to be deleted or remove any old ones)
 			pad.Rmv_Updates()
 
 			// save pad free of updates
@@ -343,11 +352,10 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 
 	}
 }
-
+/*Exported map that holds the pads that are editted */
 var PadMap = make(map[string]*Pad.Pad_info)
 
 /*
-CreateNewPad
 -Gets a request to create a new NotePad
 -Respond back with:
 	StatusCode:200 Success,Ok
@@ -381,15 +389,14 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 		fmt.Println("----------\n", er)
 
 		// delete from map pad that could not create
-		// and reduce counter for name creation
 		delete(PadMap, str)
 		return
 	}
 
 	/*
 		insertion to pad must be last thing that is done at
-		pad creation because if an error occurs after
-		another cpnnection to db must be made so that
+		pad creation because otherwise if an error occurs after
+		another connection to db must be made so that
 		record of pad must be deleted
 	*/
 	er = insert_padID_to_db(str, s, r.Host)
@@ -413,6 +420,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 
 	// pad created, return created status at client
 	w.WriteHeader(200)
+
 	//insert the user ip to the global map where
 	//logedin user kept
 	userIp := string(r.RemoteAddr)
@@ -422,12 +430,13 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	//uj := json.NewEncoder(w).Encode(PadMap[str])
 	jsonAnswer, err := json.Marshal(PadMap[str])
 	if err == nil {
-		fmt.Println(string(jsonAnswer))
+		// fmt.Println(string(jsonAnswer))
 		fmt.Fprintf(w, "%s", jsonAnswer)
 	}
 	// print_padMap()
 }
 
+// For Debugging
 func print_padMap() {
 	for k, v := range PadMap {
 		fmt.Printf("key[%s] value[%s]\n", k, v)
@@ -477,6 +486,7 @@ func insert_padID_to_db(id, name, ip string) (er error) {
 	if err != nil {
 		return
 	}
+
 	return
 }
 
@@ -487,8 +497,8 @@ Gets a Request to rename a file with specific ID
 -Respond back with:
         StatusCode:200 Success,Ok
         StatusCode:500 Server Error(Fail to create a file,or generate a new ID)
-	StatusCode:400 Could not decode JSON
-	StatusCode:404 Could not find Pad
+		StatusCode:400 Could not decode JSON
+		StatusCode:404 Could not find Pad
 */
 func (c Controller) RenameFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// fmt.Fprint(w,"RenameFile\n")
@@ -593,7 +603,8 @@ func (c Controller) DeleteFile(w http.ResponseWriter, r *http.Request, _ httprou
 			}
 			return
 		}
-		deletePad_fromDb(t.ID)
+
+		err = deletePad_fromDb(t.ID)
 		if err != nil {
 			/*
 			   ~if error happens at database connection recover deleted file
