@@ -1,6 +1,7 @@
 package Users
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -40,12 +41,21 @@ func (u *User) IsActive() bool{
 */
 func CleanInactiveUsers(){
 	for padID , users := range ConnectedUsers{
-		for idx , u := range users{
-			if !u.IsActive(){
-				ConnectedUsers[padID] = append(ConnectedUsers[padID][:idx], 
-					ConnectedUsers[padID][idx+1:]...)
+		tmp := users[:0]
+		for _ , u := range users{
+			// create a zero-length slice with the same underlying array
+			
+			// keep element
+			if u.IsActive(){
+				tmp = append(tmp,u)
+			}else{
+				fmt.Println("Removing inactive user from pad:" ,
+					 padID ,"\n\tUsers:",users , "\n\tlenght:" , len(users))
+				fmt.Println(/*"Removing idx:",idx,*/"now:", time.Now() , "\nlastActive:",u.LastActive)	
 			}
 		}
+		// save to map the slice that keeps all active users
+		ConnectedUsers[padID] = tmp
 	}	
 }
 
