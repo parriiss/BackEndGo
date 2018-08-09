@@ -1,4 +1,4 @@
-	// main.go
+// main.go
 
 package main
 
@@ -23,37 +23,38 @@ package main
 */
 
 import (
-	"./Controller"
-	"./model/DataBaseInfo"
-	"./model/Pad_info"
-	"./model/Requests"
 	"errors"
 	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
+	"./Controller"
+	"./model/DataBaseInfo"
+	"./model/Pad_info"
+	"./model/Requests"
+	"github.com/julienschmidt/httprouter"
 )
 
-// map for saving possible out-of-order requsts
+// map for saving possible out-of-order requests
 var Saved_requests []Requests.Editor_req
 
-var can_write_to_file sync.Mutex
+// var can_write_to_file sync.Mutex
 var SavedReq_Mux sync.Mutex
 
 func main() {
 
+	// load info from config file
 	DataBaseInfo.LoadDBInfo()
+	// fmt.Println(DataBaseInfo.DBLogInString())
 
-	fmt.Println(DataBaseInfo.DBLogInString() )
 	r := httprouter.New()
 
-	// init API
+	// init global vars channel
 	Requests.Init()
+	// init API
 	handleURLS(r)
 
-	// init global vars channel
 	/*
 		possibly multiple go routines can be created for faster
 		request-handling/writing to file, if so can_write_to_file
@@ -66,6 +67,8 @@ func main() {
 	defer Requests.CloseChannel()
 
 	// fire up server
+	// check for available ports??
+	fmt.Println("Listening to port 8000...")
 	http.ListenAndServe(":8000", r)
 }
 
@@ -80,53 +83,38 @@ func handleURLS(r *httprouter.Router) {
 	r.GET("/OnlineEditor/About", c.About)
 	r.GET("/LoadPad/:id", c.LoadPad)
 	r.GET("/GetUsers/:id", c.GetLoggedInUsers)
+	
 	// 	POST
-	// r.POST(<URL1> , <function>)
 	r.POST("/PadHistory", c.GetPadHistory)
 	r.POST("/NewPad", c.CreateNewPad)
 	r.POST("/RenameFile", c.RenameFile)
 	r.POST("/EmptyFile", c.EmptyDocument)
-	// ....
-	// ...
-	// .
-
+	
 	// 	PUT
-	// r.PUT(<URL1> , <function>)
 	r.PUT("/Edit", c.Upd_PUT)
-	// ....
-	// ...
-	// .
-
+	
 	//	DELETE
-	// r.DELETE(<URL1> , <function>)
 	r.DELETE("/DeleteFile", c.DeleteFile)
-	// ....
-
+	
 }
 
 /*
-	***IMPORTANT***
 	Can change edition policy:
 		Requests edit notepad contents which is
 		a string kept while connection with client is open
 
-		Each requst modifies notepad contents' string
-		at the end of a back-end-defined period contents
-		are written to disk (? mins). Also Contents are
-		written to disk (flush) at timeout/logout.
+		Each request modifies notepad contents' string
+		at the end of a back-end-defined period.
+		Contents are written to disk every 30secs.
 				-----OR-----
-		Can keep contents in mem and save file when
-		user asks (more front end work) probably not
-		gonna do that.
-
+		 	At timeout/logout.
 
 	This is supposed to act as a go routine
 	running in the background receiving requests
 	through the in channel,
 
 	saves them and periodically(5sec, not many words can be written hence can be
-	lost if server goes down for some reason)
-	write into file serverside
+	lost/received out-of-order if server goes down for some reason)
 */
 func Init_Editor() {
 
@@ -149,48 +137,49 @@ func Init_Editor() {
 	//  start accepting requests
 	for {
 		r, ok := <-Requests.In
+		fmt.Println("Received Req:", r)
 
-		fmt.Println("Received Req:",r)
 		if ok {
 			SavedReq_Mux.Lock()
-			// save request for sorting and serving
+
+			// save request for later sorting and serving
 			Saved_requests = append(Saved_requests, r)
 			SavedReq_Mux.Unlock()
 		}
 	}
 }
 
-// serve the saved requests that have arrived
-// actually edit notepad files
+// Serve the saved requests that have arrived
 // is called every 5sec for each Handle_Requests go routine
 func serve_reqs() {
 
-	// empty slice -OR- no requests have arrived
+	SavedReq_Mux.Lock()
+	// emptied slice -OR- no requests have arrived
 	if len(Saved_requests) == 0 {
+		SavedReq_Mux.Unlock()
 		return
 	}
 
-	SavedReq_Mux.Lock()
 
-	/* 	sort requests by time they were created so
-	editing in files can be done in the right order	*/
-
-	// fmt.Println("Requests before:", Saved_requests)
+	/* 	sort requests by the time they were created
+		to handle posible out-of-order requests	*/
+	fmt.Println("Requests before:", Saved_requests)
 	sort.Sort(Requests.Oldest_First(Saved_requests))
-	// fmt.Println("Requests After:", Saved_requests)
+	fmt.Println("Requests After:", Saved_requests)
 
-	fmt.Println("Serving Reqs:",Saved_requests)
+	fmt.Println("Serving Reqs:")
+	for _,val := range Saved_requests{
+		fmt.Println(val)
+	}
 
 	for _, v := range Saved_requests {
-			/*	write into file r.Value at position r.OffsetFrom:
-				paste: many chars to specific loc
-				inpt: one char to location		*/
-			if er := write_to_pad(v.Notepad_ID, v); er != nil {
-				fmt.Println("Error at serving request:\n\t",  v,"\n\t",er)
-			}
-			// remove request ( POP )
-			Saved_requests = append(Saved_requests[:0],
-					Saved_requests[1:]...)
+		fmt.Println("Serving: ", v)
+		if er := write_to_pad(v.Notepad_ID, v); er != nil {
+			fmt.Println("Error at serving request:\n\t", v, "\n\t", er)
+		}
+
+		// remove request ( POP )
+		Saved_requests = Saved_requests[1:]
 	}
 	SavedReq_Mux.Unlock()
 }
@@ -204,19 +193,24 @@ func serve_reqs() {
 */
 func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 
-	// update pad from map
+	// get pad from map
 	if pad, ok := control.PadMap[pad_id]; ok {
 		if req.OffsetFrom > uint(len(pad.Value)) || req.OffsetTo > uint(len(pad.Value)) {
-
+			fmt.Println("Value:",pad.Value, " Req_From:",  req.OffsetFrom,
+					" Req_To:", req.OffsetTo, "\n Bound:",len(pad.Value))
 			er = errors.New(fmt.Sprintf("Bad request (out of bounds) %v", req))
 			return
 		}
 
 		pad.Value = pad.Value[:req.OffsetFrom] + req.Val + pad.Value[req.OffsetTo:]
+		
+		// add update to pad to inform client when it asks
 		pad.Updates = append(pad.Updates, Pad.Pad_update{req.Val, req.OffsetFrom, req.OffsetTo})
 
 		// signal that pad needs flushing to disk
 		pad.Needs_flushing = true
+
+		// update map
 		control.PadMap[pad_id] = pad
 	} else {
 		fmt.Println(control.PadMap)

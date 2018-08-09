@@ -2,9 +2,7 @@
 
 package Requests
 
-import "time"
 
-// MOVE THESE  STRUCTS TO MODEL
 // struct to parse PUT request json
 type put_req string
 
@@ -16,7 +14,7 @@ const (
 // struct for decoding PUT request json from client   
 type Client_Put struct {
 	// for out-of-order requests
-	Req_date time.Time 		`json:"Req_date"`
+	Timestamp int 			`json:"Req_date"`
 
 	// value for witing/inserting
 	Val string 			`json:"Value"`
@@ -38,23 +36,21 @@ type Client_Put struct {
 // struct for using client JSON for server use 
 type Editor_req struct {
 	// for out-of-order requests
-	Req_date time.Time
+	Timestamp int 			
 
-	// value for writing/inserting
+	// value to be inserted
 	Val string
 
-	// offset for write/start-of-insert/start-of-delete
-	// negative vals??
+	// offset for start-of-insert/delete
 	OffsetFrom uint
 
-	// offset for end-of-insert/end-of-delete
-	// negative vals??
+	// offset for end-of-insert/delete
 	OffsetTo uint
 
-	// notepadID request is referring to
+	// notepad ID request is referring to
 	Notepad_ID string
 
-	// user Ip address
+	// user IP address
 	UserIp	string
 }
 
@@ -63,7 +59,7 @@ type Oldest_First []Editor_req
 func (reqs Oldest_First) Len() int { return len(reqs) }
 func (reqs Oldest_First) Swap(i,j int) { reqs[i] , reqs[j] = reqs[j] ,reqs[i] }
 func (reqs Oldest_First) Less(i,j int) bool {
-	return reqs[j].Req_date.Before(reqs[i].Req_date)
+	return reqs[i].Timestamp < reqs[j].Timestamp
 }
 
 
