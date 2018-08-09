@@ -741,7 +741,6 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 			return
 		}
 		PadMap[t.ID].Value = ""
-		return
 	} else {
 		fmt.Println("File %s not found", t.ID)
 		//  bad request, could find requested file
