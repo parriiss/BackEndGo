@@ -81,13 +81,13 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	var (
-		err error
+		err          error
 		fileAsString string
-		pad Pad.Pad_info
+		pad          Pad.Pad_info
 	)
-	
+
 	//request
 	padRequest := PadRequest{p.ByName("id")}
 	//answer
@@ -111,7 +111,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		return
 	}
 	defer db.Close()
-	
+
 	stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
 	if err != nil {
 		//db error
@@ -135,9 +135,8 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	u := Users.User{ userIp , time.Now() }
 	//  ID, filename , contentsOfPad , Updates , Needs_flushing , ConnectedUsers
 	pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, nil, false , []Users.User{ u } }
-	
 
-	//insert in db info about user started session	
+	//insert in db info about user started session
 	stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
 	if err != nil {
 		//db error
@@ -153,7 +152,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 
 	//keep the pad in the global pad map
 	Pad.PadMap[padRequest.Id] = &pad
-	
+
 	//add the user to the global map logedInUsers
 	w.WriteHeader(200)
 	Users.InsertUserIp(userIp, padRequest.Id)
@@ -279,10 +278,10 @@ func (c Controller) About(w http.ResponseWriter,
 }
 
 /*
-	Pass the incoming request to channel in order to save it 
+	Pass the incoming request to channel in order to save it
 	and serve later all saved requests in the order they were
-	created (solve case of out-of-order arrival ) 
-		
+	created (solve case of out-of-order arrival )
+
 	http response header status:
 		202-->request received for processing
 			not yet served
@@ -312,7 +311,7 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		// 	put req in channel for routine to handle
 		Requests.In <- Requests.Editor_req{
 
-			Timestamp :   c_req.Timestamp,
+			Timestamp:  c_req.Timestamp,
 			Val:        c_req.Val,
 			OffsetFrom: c_req.OffsetFrom,
 			OffsetTo:   c_req.OffsetTo,
@@ -339,8 +338,8 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 				return
 			}
 
-			// flush pad updates 
-			//  must check first if all users that are connected 
+			// flush pad updates
+			//  must check first if all users that are connected
 			// have the updates (maybe check if any need to be deleted or remove any old ones)
 			pad.Rmv_Updates()
 
@@ -385,6 +384,10 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	//  ID, filename , contentsOfPad , Updates , Needs_flushing , ConnectedUsers
 	Pad.PadMap[str] = &Pad.Pad_info{str, s, "", nil, false , 	[]Users.User{ u } }
 	
+	if _, err := os.Stat("./SavedFiles/"); os.IsNotExist(err) {
+		os.Mkdir("./SavedFiles/", 0755)
+	}
+
 	f := "./SavedFiles/" + str + ".txt"
 	_, er = os.Create(f)
 	if er != nil {
@@ -535,6 +538,14 @@ func (c Controller) RenameFile(w http.ResponseWriter, r *http.Request, _ httprou
 		w.WriteHeader(404)
 		return
 	}
+
+	w.WriteHeader(200)
+
+	jsonAnswer, err := json.Marshal(PadMap[t.ID])
+	if err == nil {
+		// fmt.Println(string(jsonAnswer))
+		fmt.Fprintf(w, "%s", jsonAnswer)
+	}
 }
 
 func update_filename_atDb(padId, newName string) (err error) {
@@ -636,6 +647,13 @@ func (c Controller) DeleteFile(w http.ResponseWriter, r *http.Request, _ httprou
 		fmt.Println("File %s not found", t.ID)
 		w.WriteHeader(404)
 	}
+
+	w.WriteHeader(200)
+	jsonAnswer, err := json.Marshal(t)
+	if err == nil {
+		// fmt.Println(string(jsonAnswer))
+		fmt.Fprintf(w, "%s", jsonAnswer)
+	}
 }
 
 /*
@@ -723,13 +741,20 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 		err := os.Truncate("./SavedFiles/"+Pad.PadMap[t.ID].ID+".txt", 0)
 		if os.IsNotExist(err) {
 			w.WriteHeader(404)
-		} else {
-			w.WriteHeader(500)
+			return
 		}
-		return
+		PadMap[t.ID].Value = ""
 	} else {
 		fmt.Println("File %s not found", t.ID)
 		//  bad request, could find requested file
 		w.WriteHeader(404)
+		return;
 	}
+	jsonAnswer, err := json.Marshal(t)
+	if err == nil {
+		// fmt.Println(string(jsonAnswer))
+		fmt.Fprintf(w, "%s", jsonAnswer)
+	}
+	w.WriteHeader(200)
+
 }
