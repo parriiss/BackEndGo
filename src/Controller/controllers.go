@@ -745,6 +745,7 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 		fmt.Println("File %s not found", t.ID)
 		//  bad request, could find requested file
 		w.WriteHeader(404)
+		return;
 	}
 	jsonAnswer, err := json.Marshal(t)
 	if err == nil {
