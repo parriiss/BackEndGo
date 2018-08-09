@@ -3,6 +3,7 @@
 package Pad
 
 import (
+	"../Users"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -16,11 +17,24 @@ type Pad_update struct {
 }
 
 type Pad_info struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	Value          string `json:"value"`
-	Updates        []Pad_update
-	Needs_flushing bool
+	// ID of the pad
+	ID             		string 	`json:"id"`
+
+	// name of the pad
+	Name           		string 	`json:"name"`
+	
+	// Contents  
+	Value          		string `json:"value"`
+	
+	//  Updates that pad has gone through
+	//  and users need to be notified about
+	Updates       		[]Pad_update
+
+	//  Boolean pad is dirty must write to disk
+	Needs_flushing 	bool
+
+	//  Users Connected to this pad
+	Users			[]Users.User
 }
 
 // Append new update to slice in pad that keeps updates 
@@ -84,3 +98,6 @@ func (p *Pad_info) Update_file() (er error) {
 
 	return
 }
+
+/*Exported map that holds the pads that are editted */
+var PadMap = make(map[string]*Pad_info)
