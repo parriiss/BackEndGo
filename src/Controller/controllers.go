@@ -646,7 +646,7 @@ func (c Controller) DeleteFile(w http.ResponseWriter, r *http.Request, _ httprou
 	}
 
 	w.WriteHeader(200)
-	jsonAnswer, err := json.Marshal(t.ID)
+	jsonAnswer, err := json.Marshal(t)
 	if err == nil {
 		// fmt.Println(string(jsonAnswer))
 		fmt.Fprintf(w, "%s", jsonAnswer)
@@ -747,10 +747,11 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 		//  bad request, could find requested file
 		w.WriteHeader(404)
 	}
-	w.WriteHeader(200)
-	jsonAnswer, err := json.Marshal(PadMap[t.ID])
+	jsonAnswer, err := json.Marshal(t)
 	if err == nil {
 		// fmt.Println(string(jsonAnswer))
 		fmt.Fprintf(w, "%s", jsonAnswer)
 	}
+	w.WriteHeader(200)
+
 }
