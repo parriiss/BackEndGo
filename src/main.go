@@ -83,7 +83,7 @@ func handleURLS(r *httprouter.Router) {
 	// 	GET
 	r.GET("/OnlineEditor/About", c.About)
 	r.GET("/LoadPad/:id", c.LoadPad)
-	r.GET("/GetUsers/:id", c.GetConnectedUsers)
+	// r.GET("/GetUsers/:id", c.GetConnectedUsers)
 	
 	// 	POST
 	r.POST("/PadHistory", c.GetPadHistory)

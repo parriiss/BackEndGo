@@ -128,11 +128,12 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 
 	//time format
 	logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
-	userIp := string(r.RemoteAddr)
+	
 	//state=1 :: started session
 	state := 1
 	
-	u := Users.User{ userIp , time.Now() }
+	u := Users.User{ r.RemoteAddr , time.Now() }
+
 	//  ID, filename , contentsOfPad , Updates , Needs_flushing , ConnectedUsers
 	pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, nil, false , []Users.User{ u } }
 
@@ -143,7 +144,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		w.WriteHeader(500)
 		return
 	}
-	_, err = stmt.Exec(userIp, padRequest.Id, logInTime, state)
+	_, err = stmt.Exec(r.RemoteAddr, padRequest.Id, logInTime, state)
 	if err != nil {
 		//db error
 		w.WriteHeader(500)
@@ -155,7 +156,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 
 	//add the user to the global map logedInUsers
 	w.WriteHeader(200)
-	Users.InsertUserIp(userIp, padRequest.Id)
+	Users.InsertUserIp(r.RemoteAddr , padRequest.Id)
 	jsonAnswer, err := json.Marshal(pad)
 	fmt.Fprintf(w, "%s", jsonAnswer)
 }
@@ -306,54 +307,64 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	defer r.Body.Close()
 
 	fmt.Println("Received req for pad:", c_req.Notepad_ID)
-
-	if !c_req.Is_update_request {
+	pad, ok := Pad.PadMap[c_req.Notepad_ID]
+	if !ok {
+		fmt.Println("Pad:", c_req.Notepad_ID, " not found")
+		// requested pad not found
+		w.WriteHeader(404)
+		return
+	} else if (!c_req.Is_update_request ) {
 		// 	put req in channel for routine to handle
 		Requests.In <- Requests.Editor_req{
-
 			Timestamp:  c_req.Timestamp,
 			Val:        c_req.Val,
 			OffsetFrom: c_req.OffsetFrom,
 			OffsetTo:   c_req.OffsetTo,
 			Notepad_ID: c_req.Notepad_ID,
-			// add user IP address
 		}
+
+		KeepAlive(r.RemoteAddr , c_req.Notepad_ID)
 
 		w.WriteHeader(202)
-	} else {
-
-		if pad, ok := Pad.PadMap[c_req.Notepad_ID]; ok {
-			// no updates to return
-			if len(pad.Updates) == 0 {
-				//  return http status no content
-				w.WriteHeader(204)
-				return
-			}
-
-			// response json
-			rj, er := json.Marshal(pad.Updates)
-			if er != nil {
-				// failed to mashal json
-				w.WriteHeader(500)
-				return
-			}
-
-			// flush pad updates
-			//  must check first if all users that are connected
-			// have the updates (maybe check if any need to be deleted or remove any old ones)
-			pad.Rmv_Updates()
-
-			// save pad free of updates
-			Pad.PadMap[c_req.Notepad_ID] = pad
-			fmt.Fprintf(w, "%s", rj)
-			w.WriteHeader(200)
-		} else {
-			fmt.Println("Pad:", c_req.Notepad_ID, " not found")
-			// requested pad not found
-			w.WriteHeader(404)
+	} else  {
+		// no updates to return
+		if len(pad.Updates) == 0 {
+			//  return http status no content
+			w.WriteHeader(204)
+			return
 		}
 
-	}
+		// response json
+		rj, er := json.Marshal(pad.Updates)
+		if er != nil {
+			// failed to mashal json
+			w.WriteHeader(500)
+			return
+		}
+
+		KeepAlive( r.RemoteAddr, c_req.Notepad_ID)
+
+		// flush pad updates
+		//  must check first if all users that are connected
+		// have the updates (maybe check if any need to be deleted or remove any old ones)
+		pad.Rmv_Updates()
+
+		// save pad free of updates
+		Pad.PadMap[c_req.Notepad_ID] = pad
+		fmt.Fprintf(w, "%s", rj)
+		w.WriteHeader(200)
+	} 
+}
+
+//  this should be method of a struct that contains the users map and 
+//  not a seperate function in controller
+func KeepAlive(userAddress , padID string ){
+	for  _,user := range Users.ConnectedUsers[padID]{
+			if  userAddress == user.Address{
+				user.KeepActive()
+				fmt.Println("Keeping alive ipAddress:", userAddress)
+			} 
+	}	
 }
 
 
@@ -380,7 +391,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 		return
 	}
 
-	u := Users.User{ string(r.RemoteAddr) , time.Now() }
+	u := Users.User{ r.RemoteAddr , time.Now() }
 	//  ID, filename , contentsOfPad , Updates , Needs_flushing , ConnectedUsers
 	Pad.PadMap[str] = &Pad.Pad_info{str, s, "", nil, false , 	[]Users.User{ u } }
 	
@@ -430,8 +441,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 
 	//insert the user ip to the global map where
 	//logedin user kept
-	userIp := string(r.RemoteAddr)
-	Users.InsertUserIp(userIp, str)
+	Users.InsertUserIp(r.RemoteAddr, str)
 	// return to client pad that was created
 
 	//uj := json.NewEncoder(w).Encode(Pad.PadMap[str])
@@ -541,7 +551,7 @@ func (c Controller) RenameFile(w http.ResponseWriter, r *http.Request, _ httprou
 
 	w.WriteHeader(200)
 
-	jsonAnswer, err := json.Marshal(PadMap[t.ID])
+	jsonAnswer, err := json.Marshal(Pad.PadMap[t.ID])
 	if err == nil {
 		// fmt.Println(string(jsonAnswer))
 		fmt.Fprintf(w, "%s", jsonAnswer)
@@ -743,7 +753,7 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 			w.WriteHeader(404)
 			return
 		}
-		PadMap[t.ID].Value = ""
+		Pad.PadMap[t.ID].Value = ""
 	} else {
 		fmt.Println("File %s not found", t.ID)
 		//  bad request, could find requested file
