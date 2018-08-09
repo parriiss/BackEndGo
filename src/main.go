@@ -30,6 +30,7 @@ import (
 	"sync"
 	"time"
 	"./Controller"
+	"./model/Users"
 	"./model/DataBaseInfo"
 	"./model/Pad_info"
 	"./model/Requests"
@@ -82,7 +83,7 @@ func handleURLS(r *httprouter.Router) {
 	// 	GET
 	r.GET("/OnlineEditor/About", c.About)
 	r.GET("/LoadPad/:id", c.LoadPad)
-	r.GET("/GetUsers/:id", c.GetLoggedInUsers)
+	r.GET("/GetUsers/:id", c.GetConnectedUsers)
 	
 	// 	POST
 	r.POST("/PadHistory", c.GetPadHistory)
@@ -132,6 +133,14 @@ func Init_Editor() {
 		for _ = range serve_request.C {
 			serve_reqs()
 		}
+	}()
+
+	// timeoutimplementation
+	go func(){
+		checkTimeout := time.NewTicker(1 * time.Minute)
+		for _ = range checkTimeout.C {
+			Users.CleanInactiveUsers()
+		} 
 	}()
 
 	//  start accepting requests
@@ -194,7 +203,7 @@ func serve_reqs() {
 func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 
 	// get pad from map
-	if pad, ok := control.PadMap[pad_id]; ok {
+	if pad, ok := Pad.PadMap[pad_id]; ok {
 		if req.OffsetFrom > uint(len(pad.Value)) || req.OffsetTo > uint(len(pad.Value)) {
 			fmt.Println("Value:",pad.Value, " Req_From:",  req.OffsetFrom,
 					" Req_To:", req.OffsetTo, "\n Bound:",len(pad.Value))
@@ -211,9 +220,9 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 		pad.Needs_flushing = true
 
 		// update map
-		control.PadMap[pad_id] = pad
+		Pad.PadMap[pad_id] = pad
 	} else {
-		fmt.Println(control.PadMap)
+		fmt.Println(Pad.PadMap)
 		er = errors.New("Could not find pad:" + pad_id)
 	}
 
@@ -225,7 +234,7 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 	kept in the PadMap, update their file in disk
 */
 func write_to_pad_files() (er error) {
-	for _, pad := range control.PadMap {
+	for _, pad := range Pad.PadMap {
 		if er = pad.Update_file(); er != nil {
 			fmt.Println("Error updating pad_file contents for ", pad.ID)
 			fmt.Println("\t------\n", er, "\t------\n")
