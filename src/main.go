@@ -23,17 +23,17 @@ package main
 */
 
 import (
-	"errors"
-	"fmt"
-	"net/http"
-	"sort"
-	"sync"
-	"time"
 	"./Controller"
 	"./model/DataBaseInfo"
 	"./model/Pad_info"
 	"./model/Requests"
+	"errors"
+	"fmt"
 	"github.com/julienschmidt/httprouter"
+	"net/http"
+	"sort"
+	"sync"
+	"time"
 )
 
 // map for saving possible out-of-order requests
@@ -47,7 +47,7 @@ func main() {
 	// load info from config file
 	DataBaseInfo.LoadDBInfo()
 	// fmt.Println(DataBaseInfo.DBLogInString())
-
+	DataBaseInfo.LoadFolderInfo()
 	r := httprouter.New()
 
 	// init global vars channel
@@ -83,19 +83,19 @@ func handleURLS(r *httprouter.Router) {
 	r.GET("/OnlineEditor/About", c.About)
 	r.GET("/LoadPad/:id", c.LoadPad)
 	r.GET("/GetUsers/:id", c.GetLoggedInUsers)
-	
+
 	// 	POST
 	r.POST("/PadHistory", c.GetPadHistory)
 	r.POST("/NewPad", c.CreateNewPad)
 	r.POST("/RenameFile", c.RenameFile)
 	r.POST("/EmptyFile", c.EmptyDocument)
-	
+
 	// 	PUT
 	r.PUT("/Edit", c.Upd_PUT)
-	
+
 	//	DELETE
 	r.DELETE("/DeleteFile", c.DeleteFile)
-	
+
 }
 
 /*
@@ -160,15 +160,14 @@ func serve_reqs() {
 		return
 	}
 
-
 	/* 	sort requests by the time they were created
-		to handle posible out-of-order requests	*/
+	to handle posible out-of-order requests	*/
 	fmt.Println("Requests before:", Saved_requests)
 	sort.Sort(Requests.Oldest_First(Saved_requests))
 	fmt.Println("Requests After:", Saved_requests)
 
 	fmt.Println("Serving Reqs:")
-	for _,val := range Saved_requests{
+	for _, val := range Saved_requests {
 		fmt.Println(val)
 	}
 
@@ -196,14 +195,14 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 	// get pad from map
 	if pad, ok := control.PadMap[pad_id]; ok {
 		if req.OffsetFrom > uint(len(pad.Value)) || req.OffsetTo > uint(len(pad.Value)) {
-			fmt.Println("Value:",pad.Value, " Req_From:",  req.OffsetFrom,
-					" Req_To:", req.OffsetTo, "\n Bound:",len(pad.Value))
+			fmt.Println("Value:", pad.Value, " Req_From:", req.OffsetFrom,
+				" Req_To:", req.OffsetTo, "\n Bound:", len(pad.Value))
 			er = errors.New(fmt.Sprintf("Bad request (out of bounds) %v", req))
 			return
 		}
 
 		pad.Value = pad.Value[:req.OffsetFrom] + req.Val + pad.Value[req.OffsetTo:]
-		
+
 		// add update to pad to inform client when it asks
 		pad.Updates = append(pad.Updates, Pad.Pad_update{req.Val, req.OffsetFrom, req.OffsetTo})
 

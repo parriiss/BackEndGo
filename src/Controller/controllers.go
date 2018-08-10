@@ -367,7 +367,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	// fmt.Fprint(w,"CreateNewPad\n")
+	fmt.Println(DataBaseInfo.FolderDir.FilesDir)
 	s := "Newpad"
 	str, er := generate_Pad_Name()
 
@@ -382,10 +382,10 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	// increment pad name int for next pad creation
 
 	PadMap[str] = &Pad.Pad_info{str, s, "", nil, false}
-	if _, err := os.Stat("./SavedFiles/"); os.IsNotExist(err) {
-		os.Mkdir("./SavedFiles/", 0755)
+	if _, err := os.Stat(DataBaseInfo.FolderDir.FilesDir); os.IsNotExist(err) {
+		os.Mkdir(DataBaseInfo.FolderDir.FilesDir, 0755)
 	}
-	f := "./SavedFiles/" + str + ".txt"
+	f := DataBaseInfo.FolderDir.FilesDir + str + ".txt"
 	_, er = os.Create(f)
 	if er != nil {
 		// could not create file in server
@@ -598,7 +598,7 @@ func (c Controller) DeleteFile(w http.ResponseWriter, r *http.Request, _ httprou
 		*/
 
 		recPath := "./" + t.ID + "-Backup" + ".txt"
-		originalPath := "./SavedFiles/" + PadMap[t.ID].ID + ".txt"
+		originalPath := DataBaseInfo.FolderDir.FilesDir + PadMap[t.ID].ID + ".txt"
 		CreateBackupFile(originalPath, recPath)
 		if err != nil {
 			w.WriteHeader(500)
@@ -735,23 +735,22 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 
 	if val, ok := PadMap[t.ID]; ok {
 		fmt.Println("Empty Document : ", val.Name)
-		err := os.Truncate("./SavedFiles/"+PadMap[t.ID].ID+".txt", 0)
+		err := os.Truncate(DataBaseInfo.FolderDir.FilesDir+PadMap[t.ID].ID+".txt", 0)
 		if os.IsNotExist(err) {
 			w.WriteHeader(404)
 			return
 		}
-		PadMap[t.ID].Value = ""
-		return
 	} else {
 		fmt.Println("File %s not found", t.ID)
 		//  bad request, could find requested file
 		w.WriteHeader(404)
-	}
-	jsonAnswer, err := json.Marshal(t)
-	if err == nil {
-		// fmt.Println(string(jsonAnswer))
-		fmt.Fprintf(w, "%s", jsonAnswer)
+		return
 	}
 	w.WriteHeader(200)
+
+	jsonAnswer, err := json.Marshal(t)
+	if err == nil {
+		fmt.Fprintf(w, "%s", jsonAnswer)
+	}
 
 }
