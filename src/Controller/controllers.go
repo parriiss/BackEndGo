@@ -740,11 +740,19 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 			w.WriteHeader(404)
 			return
 		}
+<<<<<<< HEAD
+=======
+		PadMap[t.ID].Value = ""
+>>>>>>> bb42c7833a3257b18669edaf200e6203e41a4c2b
 	} else {
 		fmt.Println("File %s not found", t.ID)
 		//  bad request, could find requested file
 		w.WriteHeader(404)
+<<<<<<< HEAD
 		return
+=======
+		return;
+>>>>>>> bb42c7833a3257b18669edaf200e6203e41a4c2b
 	}
 	w.WriteHeader(200)
 
