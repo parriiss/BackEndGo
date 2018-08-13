@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 	"./Controller"
-	"./model/Users"
+	_"./model/Users"
 	"./model/DataBaseInfo"
 	"./model/Pad_info"
 	"./model/Requests"
@@ -81,6 +81,9 @@ func handleURLS(r *httprouter.Router) {
 	c := control.NewController()
 
 	// 	GET
+	r.GET("/" , func (w http.ResponseWriter , r *http.Request , p httprouter.Params){
+			fmt.Fprintf(w, "<h1> Hello this is a test server that is running </h1>" )
+		})
 	r.GET("/OnlineEditor/About", c.About)
 	r.GET("/LoadPad/:id", c.LoadPad)
 	// r.GET("/GetUsers/:id", c.GetConnectedUsers)
@@ -139,7 +142,7 @@ func Init_Editor() {
 	go func(){
 		checkTimeout := time.NewTicker(1 * time.Minute)
 		for _ = range checkTimeout.C {
-			Users.CleanInactiveUsers()
+			Pad.CleanInactiveUsers()
 		} 
 	}()
 

@@ -156,7 +156,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 
 	//add the user to the global map logedInUsers
 	w.WriteHeader(200)
-	Users.InsertUserIp(r.RemoteAddr , padRequest.Id)
+	Pad.InsertUserIp(r.RemoteAddr , padRequest.Id)
 	jsonAnswer, err := json.Marshal(pad)
 	fmt.Fprintf(w, "%s", jsonAnswer)
 }
@@ -171,7 +171,7 @@ func (c Controller) GetConnectedUsers(w http.ResponseWriter,
 	r *http.Request, p httprouter.Params) {
 
 	padId := p.ByName("id")
-	users := Users.GetConnectedUsers(padId)
+	users := Pad	.GetConnectedUsers(padId)
 	jsonAnswer, err := json.Marshal(users)
 	if err == nil {
 		fmt.Fprintf(w, "%s", jsonAnswer)
@@ -359,7 +359,11 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 //  this should be method of a struct that contains the users map and 
 //  not a seperate function in controller
 func KeepAlive(userAddress , padID string ){
-	for  _,user := range Users.ConnectedUsers[padID]{
+	if _,ok := Pad.PadMap[padID]; !ok {
+		return
+	}
+	
+	for  _,user := range Pad.PadMap[padID].Users{
 			if  userAddress == user.Address{
 				user.KeepActive()
 				fmt.Println("Keeping alive ipAddress:", userAddress)
@@ -441,7 +445,7 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 
 	//insert the user ip to the global map where
 	//logedin user kept
-	Users.InsertUserIp(r.RemoteAddr, str)
+	Pad.InsertUserIp(r.RemoteAddr, str)
 	// return to client pad that was created
 
 	//uj := json.NewEncoder(w).Encode(Pad.PadMap[str])
