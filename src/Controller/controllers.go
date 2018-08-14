@@ -8,7 +8,6 @@ import (
 	"../model/Users"
 	"../model/PadHistory"
 	"../model/Pad_info"
-	"../model/PadResponse"
 	"../model/Requests"
 	"database/sql"
 	"encoding/json"
@@ -180,7 +179,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	//add the user to the global map logedInUsers
 	w.WriteHeader(200)
 	
-	jsonAnswer, err := json.Marshal(PadResponse.ClientR{
+	jsonAnswer, err := json.Marshal(Pad.PadResponse{
 		ID 		: pad.ID,
 		Name 	: pad.Name,
 		Value	: fileAsString,
@@ -347,8 +346,9 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 	}
 
 	u := Users.User{ r.RemoteAddr , time.Now() }
+	p := &Pad.Pad_info{str, s, "", nil, false , []Users.User{ u } }
 	//  ID, filename , contentsOfPad , Updates , Needs_flushing , ConnectedUsers
-	Pad.PadMap[str] = &Pad.Pad_info{str, s, "", nil, false , 	[]Users.User{ u } }
+	Pad.PadMap[str] = p
 	
 	if _, err := os.Stat("./SavedFiles/"); os.IsNotExist(err) {
 		os.Mkdir("./SavedFiles/", 0755)
@@ -393,18 +393,19 @@ func (c Controller) CreateNewPad(w http.ResponseWriter, r *http.Request, _ httpr
 
 	// pad created, return created status at client
 	w.WriteHeader(200)
-
-	//insert the user ip to the global map where
-	//logedin user kept
-	Pad.InsertUserIp(r.RemoteAddr, str)
-	// return to client pad that was created
-
-	//uj := json.NewEncoder(w).Encode(Pad.PadMap[str])
-	jsonAnswer, err := json.Marshal(Pad.PadMap[str])
-	if err == nil {
-		// fmt.Println(string(jsonAnswer))
-		fmt.Fprintf(w, "%s", jsonAnswer)
+	pr := Pad.PadResponse{
+		ID 		: p.ID,
+		Name 	: p.Name,
+		Value	: p.Value,
+		Users	: p.Users,
 	}
+	// return to client pad that was created
+	if jsonAnswer, err := json.Marshal(pr);err == nil {
+		fmt.Fprintf(w, "%s", jsonAnswer)
+	}else{
+		fmt.Println("Error in marshal", er , pr)
+	}
+	
 	// print_padMap()
 }
 

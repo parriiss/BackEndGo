@@ -47,6 +47,21 @@ type Pad_info struct {
 	Users []Users.User
 }
 
+// Struct for sending pad to client 
+type PadResponse struct{
+	// ID of the pad
+	ID string 		`json:"id"`
+
+	// name of the pad
+	Name string 	`json:"name"`
+
+	// Contents
+	Value string 	`json:"value"`
+
+	//  Users Connected to this pad
+	Users []Users.User	`json:"users"`
+} 
+
 // Append new update to slice in pad that keeps updates
 // that have happened to later inform client at request
 func (p *Pad_info) Add_update(v string, s, e uint ,toNotify []Users.User) {
