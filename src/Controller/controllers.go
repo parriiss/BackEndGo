@@ -91,7 +91,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	)
 
 	//request
-	padRequest := PadRequest{p.ByName("id")}
+	requestID := p.ByName("id")
 	u := Users.User{ r.RemoteAddr , time.Now() }
 	
 	/*
@@ -103,10 +103,10 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 				return 404 
 	*/
 	Pad.PadLock.Lock()
-	if pad = Pad.PadMap[padRequest.Id]; pad != nil {
+	if pad = Pad.PadMap[requestID]; pad != nil {
 		fileAsString = pad.Value
 		padFound = true
-	} else if fileAsString, err = c.LoadPadFromFile(padRequest.Id); err != nil  {
+	} else if fileAsString, err = c.LoadPadFromFile(requestID); err != nil  {
 		w.WriteHeader(404)
 		Pad.PadLock.Unlock()
 		return		
@@ -132,9 +132,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 			add user to pad
 	*/
 	if !padFound{
-		db, err = sql.Open("mysql", DataBaseInfo.DBLogInString())
-		if err != nil {
-			//cant open db
+		if db, err = sql.Open("mysql", DataBaseInfo.DBLogInString()); err != nil{
 			w.WriteHeader(500)
 			return
 		}
@@ -143,21 +141,19 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
 		if err != nil {w.WriteHeader(500); return}
 		
-		if err = stmt.QueryRow(padRequest.Id).Scan(&fileName);err != nil{
+		if err = stmt.QueryRow(requestID).Scan(&fileName);err != nil{
 			w.WriteHeader(500)	//at db error
 			return
 		}
 
+		start_session(requestID , r.RemoteAddr , db)
 	}else if newuser {
 		// pad is found in map AND a new user is connected signal start session
 		Pad.PadLock.Lock()
-		pad.Users = append(pad.Users , u)
-		Pad.PadMap[pad.ID] = pad
+		Pad.InsertUserIp(u.Address ,pad.ID)
 		Pad.PadLock.Unlock()
 
-		db, err = sql.Open("mysql", DataBaseInfo.DBLogInString())
-		if err != nil {
-			//cant open db
+		if db, err = sql.Open("mysql", DataBaseInfo.DBLogInString()); err != nil{
 			w.WriteHeader(500)
 			return
 		}
@@ -168,7 +164,7 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 
 	//keep the pad in the global pad map if not there
 	if !padFound{
-		pad = &Pad.Pad_info{padRequest.Id,
+		pad = &Pad.Pad_info{requestID,
 			fileName,
 			fileAsString,
 			nil,
@@ -177,13 +173,12 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 		}
 
 		Pad.PadLock.Lock()
-		Pad.PadMap[padRequest.Id] = pad
+		Pad.PadMap[requestID] = pad
 		Pad.PadLock.Unlock()
 	}
 
 	//add the user to the global map logedInUsers
 	w.WriteHeader(200)
-	Pad.InsertUserIp(r.RemoteAddr , padRequest.Id)
 	
 	jsonAnswer, err := json.Marshal(PadResponse.ClientR{
 		ID 		: pad.ID,
