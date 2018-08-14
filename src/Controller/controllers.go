@@ -12,7 +12,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
+	_"github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
 	"github.com/lucasjones/reggen"
 	"io"

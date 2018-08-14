@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-
+	"database/sql"
+	_"github.com/go-sql-driver/mysql"
+	"../DataBaseInfo"
 	"../Users"
 )
 
@@ -104,7 +106,7 @@ func (p *Pad_info) Update_file() (er error) {
 /*Exported map that holds the pads that are editted */
 var PadMap = make(map[string]*Pad_info)
 
-/*	timeout implementation
+/*	timeout implementation 
 	Checks ConnectedUsers:
 		If for any user the inactive period has
 		exceed allowed remove him form
@@ -113,15 +115,18 @@ var PadMap = make(map[string]*Pad_info)
 func CleanInactiveUsers() {
 	for padID, pad := range PadMap {
 		tmp := pad.Users[:0]
-		for _, u := range pad.Users {
+		for i, u := range pad.Users {
 			// create a zero-length slice with the same underlying array
 
 			if u.IsActive() {
 				// keep element
 				tmp = append(tmp, u)
 			} else {
+				if er := end_session(padID , u.Address); er!=nil{
+					fmt.Println("Error signaling end session to db:\n\t" ,er)	
+				}
 				fmt.Println("Removing inactive user from pad:",
-					padID, "\n\tUsers:", pad.Users, "\n\tlenght:", len(pad.Users))
+					padID, "\n\tUsers:", pad.Users, "\n\tlenght:", len(pad.Users)-(i-len(tmp)) )
 				fmt.Println( /*"Removing idx:",idx,*/ "now:", time.Now(), "\nlastActive:", u.LastActive)
 			}
 		}
@@ -138,6 +143,23 @@ func CleanInactiveUsers() {
 		}
 	}
 }
+
+func end_session(id, ip string) (er error) {
+	db, er := sql.Open("mysql", DataBaseInfo.DBLogInString())
+	defer db.Close()
+	
+	stmt, err := db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
+	if err != nil {
+		return
+	}
+	_, err = stmt.Exec(ip, id, time.Now().Format("2006-01-02 15:04:05"), 0)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 
 /*Delete a userIp according to padId, from the map */
 func DeleteUserIp(ip string, padId string) {
