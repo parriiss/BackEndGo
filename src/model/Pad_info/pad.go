@@ -239,3 +239,54 @@ func InsertUserIp(ip string, padId string) {
 	PadMap[padId].Users = append(PadMap[padId].Users,
 		Users.User{ip, time.Now()})
 }
+
+func GetUserUpdates(userAddress , padID string) (upd []Pad_update) {
+	// test if need to update map with assign
+	// probably not since map has pointers and not copy of values
+	p := PadMap[padID]
+
+	if len(p.Updates) == 0 {upd = nil; return}
+	
+	for uIDX := 0; uIDX<len(p.Updates); uIDX++{
+
+		u := p.Updates[uIDX]
+		for nIDX:=0; nIDX<len(u.ToNotify); nIDX++{
+			if userAddress == u.ToNotify[nIDX].Address{
+				upd = append(upd , u)
+				/*
+					user is notified
+					 remove user from needtoNotify slice
+				*/
+				u.ToNotify = append(u.ToNotify[:uIDX] ,u.ToNotify[uIDX+1:]...)
+				break
+			}
+		}
+		
+		// clean up update if there is noone left to notify after this 
+		if len(u.ToNotify)==0{
+			p.Updates = append(p.Updates[:uIDX] ,p.Updates[uIDX+1:]...)
+			uIDX--	//check repeat index for slice after removing 1 item 
+		}
+	}
+	
+	return
+}
+
+/* 
+	Get the users that need to be notified for update
+	when user with ip address(uAddress) is making that 
+	update 
+*/
+func GetUsersToNotify(uAddr, padId string) (notify []Users.User){
+	p := PadMap[padId]
+	for idx,user := range p.Users{
+		if user.Address == uAddr{
+			// append the rest after the person that is making upd
+			notify = append(notify , p.Users[idx+1:]...)
+			break;
+		}
+		notify = append(notify , user)
+	}
+	
+	return
+}

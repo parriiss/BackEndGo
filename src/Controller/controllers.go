@@ -740,7 +740,11 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	c_req := Requests.Client_Put{}
+	var (
+		updates []Pad.Pad_update 
+		c_req  	Requests.Client_Put
+		ok 		bool
+	)
 	/*
 		possible error json checking here for quick response of
 		wrong data to client
@@ -754,7 +758,7 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 	defer r.Body.Close()
 
 	fmt.Println("Received req for pad:", c_req.Notepad_ID)
-	pad, ok := Pad.PadMap[c_req.Notepad_ID]
+	_, ok = Pad.PadMap[c_req.Notepad_ID]
 	if !ok {
 		fmt.Println("Pad:", c_req.Notepad_ID, " not found")
 		// requested pad not found
@@ -772,36 +776,26 @@ func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter
 		}
 
 		KeepAlive(r.RemoteAddr , c_req.Notepad_ID)
-
 		w.WriteHeader(202)
 	} else  {
-		// no updates to return
-		if len(pad.Updates) == 0 {
-			//  return http status no content
-			w.WriteHeader(204)
-			return
-		}
-
-		// response json
-		rj, er := json.Marshal(pad.Updates)
-		if er != nil {
-			// failed to mashal json
-			w.WriteHeader(500)
-			return
-		}
-
+		
+		/*
+			get the updates that user hasn't been informed
+			also cleans up updates for anything that everyone
+			has been notified
+		*/
+		updates = Pad.GetUserUpdates(r.RemoteAddr , c_req.Notepad_ID)
 		KeepAlive( r.RemoteAddr, c_req.Notepad_ID)
 
-		// flush pad updates
-		//  must check first if all users that are connected
-		// have the updates (maybe check if any need to be deleted or remove any old ones)
-		pad.Rmv_Updates()
-
-		// save pad free of updates
-		Pad.PadMap[c_req.Notepad_ID] = pad
-		fmt.Fprintf(w, "%s", rj)
-		w.WriteHeader(200)
-	} 
+		// response json
+		if rj, er := json.Marshal(updates);er!= nil{
+			w.WriteHeader(500)	// failed to mashal json
+		}else{
+			fmt.Fprintf(w, "%s", rj)
+			w.WriteHeader(200)
+		}
+	}
+	
 }
 
 //  this should be method of a struct that contains the users map and 

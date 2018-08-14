@@ -217,8 +217,12 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 
 		pad.Value = pad.Value[:req.OffsetFrom] + req.Val + pad.Value[req.OffsetTo:]
 		
+		// find which users need to be notified from this update (all except this one)
+		usersToNotify := Pad.GetUsersToNotify(req.UserIp , pad.ID)
+
 		// add update to pad to inform client when it asks
-		pad.Updates = append(pad.Updates, Pad.Pad_update{req.Val, req.OffsetFrom, req.OffsetTo , nil})
+		pad.Updates = append(pad.Updates, Pad.Pad_update{req.Val, req.OffsetFrom, 
+			req.OffsetTo , usersToNotify})
 
 		// signal that pad needs flushing to disk
 		pad.Needs_flushing = true
