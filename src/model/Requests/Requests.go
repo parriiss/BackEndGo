@@ -17,7 +17,7 @@ type Client_Put struct {
 	Timestamp int 			`json:"Req_date"`
 
 	// value for witing/inserting
-	Val string 			`json:"Value"`
+	Val string 				`json:"Value"`
 
 	// offset for write/start-of-insert/start-of-delete
 	OffsetFrom uint 		`json:"Start"`

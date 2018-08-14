@@ -8,6 +8,7 @@ import (
 	"../model/Users"
 	"../model/PadHistory"
 	"../model/Pad_info"
+	"../model/PadResponse"
 	"../model/Requests"
 	"database/sql"
 	"encoding/json"
@@ -83,82 +84,131 @@ func (c Controller) LoadPad(w http.ResponseWriter,
 	w.Header().Set("Content-Type", "application/json")
 
 	var (
-		err          error
-		fileAsString string
-		pad          Pad.Pad_info
+		err    		error
+		fileAsString, fileName 	string
+		pad     	*Pad.Pad_info
+		padFound 	bool
 	)
 
 	//request
 	padRequest := PadRequest{p.ByName("id")}
-	//answer
-	if Pad.PadMap[padRequest.Id] != nil {
-		fileAsString = Pad.PadMap[padRequest.Id].Value
-		err = nil
-	} else {
-		fileAsString, err = c.LoadPadFromFile(padRequest.Id)
-	}
-	if err != nil {
-		//file not exist
-		w.WriteHeader(404)
-		return
-	}
-
-	//request in database for name
-	db, err := sql.Open("mysql", DataBaseInfo.DBLogInString())
-	if err != nil {
-		//cant open db
-		w.WriteHeader(500)
-		return
-	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
-	if err != nil {
-		//db error
-		w.WriteHeader(500)
-		return
-	}
-	var fileName string
-	err = stmt.QueryRow(padRequest.Id).Scan(&fileName)
-	if err != nil {
-		//db error
-		w.WriteHeader(500)
-		return
-	}
-
-	//time format
-	logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
-	
-	//state=1 :: started session
-	state := 1
-	
 	u := Users.User{ r.RemoteAddr , time.Now() }
-
-	//  ID, filename , contentsOfPad , Updates , Needs_flushing , ConnectedUsers
-	pad = Pad.Pad_info{padRequest.Id, fileName, fileAsString, nil, false , []Users.User{ u } }
-
-	//insert in db info about user started session
-	stmt, err = db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
-	if err != nil {
-		//db error
-		w.WriteHeader(500)
-		return
+	
+	/*
+		if pad exists in padmap
+			load it
+		else
+			try to load file
+			if pad id not found
+				return 404 
+	*/
+	Pad.PadLock.Lock()
+	if pad = Pad.PadMap[padRequest.Id]; pad != nil {
+		fileAsString = pad.Value
+		padFound = true
+	} else if fileAsString, err = c.LoadPadFromFile(padRequest.Id); err != nil  {
+		w.WriteHeader(404)
+		Pad.PadLock.Unlock()
+		return		
 	}
-	_, err = stmt.Exec(r.RemoteAddr, padRequest.Id, logInTime, state)
-	if err != nil {
-		//db error
-		w.WriteHeader(500)
-		return
+	
+	/* if pad found in map check if a new user has connected */
+	newuser := true
+	if padFound{
+		for _,u := range pad.Users{
+			if u.Address == r.RemoteAddr {
+				newuser = false
+				break
+			}
+		}
 	}
 
-	//keep the pad in the global pad map
-	Pad.PadMap[padRequest.Id] = &pad
+	//database for name / session start
+	db := &sql.DB{}
+
+	/* if pad is not in map 
+			get name from DB
+		else if this is a new user
+			add user to pad
+	*/
+	if !padFound{
+		db, err = sql.Open("mysql", DataBaseInfo.DBLogInString())
+		if err != nil {
+			//cant open db
+			w.WriteHeader(500)
+			return
+		}
+		defer db.Close()
+
+		stmt, err := db.Prepare("SELECT name FROM filesMetaData WHERE id=?")
+		if err != nil {w.WriteHeader(500); return}
+		
+		if err = stmt.QueryRow(padRequest.Id).Scan(&fileName);err != nil{
+			w.WriteHeader(500)	//at db error
+			return
+		}
+
+	}else if newuser {
+		// pad is found in map AND a new user is connected signal start session
+		Pad.PadLock.Lock()
+		pad.Users = append(pad.Users , u)
+		Pad.PadMap[pad.ID] = pad
+		Pad.PadLock.Unlock()
+
+		db, err = sql.Open("mysql", DataBaseInfo.DBLogInString())
+		if err != nil {
+			//cant open db
+			w.WriteHeader(500)
+			return
+		}
+		defer db.Close()
+
+		start_session(pad.ID , r.RemoteAddr , db)
+	}
+
+	//keep the pad in the global pad map if not there
+	if !padFound{
+		pad = &Pad.Pad_info{padRequest.Id,
+			fileName,
+			fileAsString,
+			nil,
+			false,
+			[]Users.User{ u },
+		}
+
+		Pad.PadLock.Lock()
+		Pad.PadMap[padRequest.Id] = pad
+		Pad.PadLock.Unlock()
+	}
 
 	//add the user to the global map logedInUsers
 	w.WriteHeader(200)
 	Pad.InsertUserIp(r.RemoteAddr , padRequest.Id)
-	jsonAnswer, err := json.Marshal(pad)
+	
+	jsonAnswer, err := json.Marshal(PadResponse.ClientR{
+		ID 		: pad.ID,
+		Name 	: pad.Name,
+		Value	: fileAsString,
+		Users	: pad.Users,
+	})
+	
 	fmt.Fprintf(w, "%s", jsonAnswer)
+}
+
+func start_session(id , ip string , db *sql.DB) (err error){
+		//time format
+	
+		//insert in db info about user started session
+		stmt, err := db.Prepare("INSERT INTO historyFiles SET ip=?, id=?, time=?, state=?")
+		if err != nil {
+			return
+		}
+
+		logInTime := string(time.Now().Format("2006-01-02 15:04:05"))
+		//state : 1 --> started session
+		_, err = stmt.Exec(ip, id, logInTime, 1)
+		
+		return
 }
 
 /*
@@ -277,100 +327,6 @@ func (c Controller) About(w http.ResponseWriter,
 	w.WriteHeader(200)
 	fmt.Fprintf(w, "%s", rj)
 }
-
-/*
-	Pass the incoming request to channel in order to save it
-	and serve later all saved requests in the order they were
-	created (solve case of out-of-order arrival )
-
-	http response header status:
-		202-->request received for processing
-			not yet served
-		400-->error in json decoding or
-			other error checking
-*/
-func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-
-	c_req := Requests.Client_Put{}
-	/*
-		possible error json checking here for quick response of
-		wrong data to client
-	*/
-	if er := json.NewDecoder(r.Body).Decode(&c_req); er != nil {
-		defer r.Body.Close()
-		fmt.Println("Error in decoding json in write Parse_requests\n", er)
-		w.WriteHeader(400)
-		return
-	}
-	defer r.Body.Close()
-
-	fmt.Println("Received req for pad:", c_req.Notepad_ID)
-	pad, ok := Pad.PadMap[c_req.Notepad_ID]
-	if !ok {
-		fmt.Println("Pad:", c_req.Notepad_ID, " not found")
-		// requested pad not found
-		w.WriteHeader(404)
-		return
-	} else if (!c_req.Is_update_request ) {
-		// 	put req in channel for routine to handle
-		Requests.In <- Requests.Editor_req{
-			Timestamp:  c_req.Timestamp,
-			Val:        c_req.Val,
-			OffsetFrom: c_req.OffsetFrom,
-			OffsetTo:   c_req.OffsetTo,
-			Notepad_ID: c_req.Notepad_ID,
-		}
-
-		KeepAlive(r.RemoteAddr , c_req.Notepad_ID)
-
-		w.WriteHeader(202)
-	} else  {
-		// no updates to return
-		if len(pad.Updates) == 0 {
-			//  return http status no content
-			w.WriteHeader(204)
-			return
-		}
-
-		// response json
-		rj, er := json.Marshal(pad.Updates)
-		if er != nil {
-			// failed to mashal json
-			w.WriteHeader(500)
-			return
-		}
-
-		KeepAlive( r.RemoteAddr, c_req.Notepad_ID)
-
-		// flush pad updates
-		//  must check first if all users that are connected
-		// have the updates (maybe check if any need to be deleted or remove any old ones)
-		pad.Rmv_Updates()
-
-		// save pad free of updates
-		Pad.PadMap[c_req.Notepad_ID] = pad
-		fmt.Fprintf(w, "%s", rj)
-		w.WriteHeader(200)
-	} 
-}
-
-//  this should be method of a struct that contains the users map and 
-//  not a seperate function in controller
-func KeepAlive(userAddress , padID string ){
-	if _,ok := Pad.PadMap[padID]; !ok {
-		return
-	}
-	
-	for  _,user := range Pad.PadMap[padID].Users{
-			if  userAddress == user.Address{
-				user.KeepActive()
-				fmt.Println("Keeping alive ipAddress:", userAddress)
-			} 
-	}	
-}
-
 
 /*
 -Gets a request to create a new NotePad
@@ -772,3 +728,98 @@ func (c Controller) EmptyDocument(w http.ResponseWriter, r *http.Request, _ http
 	w.WriteHeader(200)
 
 }
+
+/*
+	Pass the incoming request to channel in order to save it
+	and serve later all saved requests in the order they were
+	created (solve case of out-of-order arrival )
+
+	http response header status:
+		202-->request received for processing
+			not yet served
+		400-->error in json decoding or
+			other error checking
+*/
+func (c Controller) Upd_PUT(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	c_req := Requests.Client_Put{}
+	/*
+		possible error json checking here for quick response of
+		wrong data to client
+	*/
+	if er := json.NewDecoder(r.Body).Decode(&c_req); er != nil {
+		defer r.Body.Close()
+		fmt.Println("Error in decoding json in write Parse_requests\n", er)
+		w.WriteHeader(400)
+		return
+	}
+	defer r.Body.Close()
+
+	fmt.Println("Received req for pad:", c_req.Notepad_ID)
+	pad, ok := Pad.PadMap[c_req.Notepad_ID]
+	if !ok {
+		fmt.Println("Pad:", c_req.Notepad_ID, " not found")
+		// requested pad not found
+		w.WriteHeader(404)
+		return
+	} else if (!c_req.Is_update_request ) {
+		// 	put req in channel for routine to handle
+		Requests.In <- Requests.Editor_req{
+			Timestamp 	: 	c_req.Timestamp,
+			Val 		:	c_req.Val,
+			OffsetFrom 	:	c_req.OffsetFrom,
+			OffsetTo 	:   c_req.OffsetTo,
+			Notepad_ID 	: 	c_req.Notepad_ID,
+			UserIp 		: 	r.RemoteAddr,
+		}
+
+		KeepAlive(r.RemoteAddr , c_req.Notepad_ID)
+
+		w.WriteHeader(202)
+	} else  {
+		// no updates to return
+		if len(pad.Updates) == 0 {
+			//  return http status no content
+			w.WriteHeader(204)
+			return
+		}
+
+		// response json
+		rj, er := json.Marshal(pad.Updates)
+		if er != nil {
+			// failed to mashal json
+			w.WriteHeader(500)
+			return
+		}
+
+		KeepAlive( r.RemoteAddr, c_req.Notepad_ID)
+
+		// flush pad updates
+		//  must check first if all users that are connected
+		// have the updates (maybe check if any need to be deleted or remove any old ones)
+		pad.Rmv_Updates()
+
+		// save pad free of updates
+		Pad.PadMap[c_req.Notepad_ID] = pad
+		fmt.Fprintf(w, "%s", rj)
+		w.WriteHeader(200)
+	} 
+}
+
+//  this should be method of a struct that contains the users map and 
+//  not a seperate function in controller
+func KeepAlive(userAddress , padID string ){
+	if _,ok := Pad.PadMap[padID]; !ok {
+		return
+	}
+	
+	for  _,user := range Pad.PadMap[padID].Users{
+			if  userAddress == user.Address{
+				user.KeepActive()
+				fmt.Println("Keeping alive ipAddress:", userAddress)
+			} 
+	}	
+}
+

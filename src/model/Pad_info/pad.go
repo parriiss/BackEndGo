@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 	"time"
 	"database/sql"
 	_"github.com/go-sql-driver/mysql"
@@ -14,11 +15,16 @@ import (
 	"../Users"
 )
 
+var PadLock sync.Mutex
+
 type Pad_update struct {
 	Value string `json:"value"`
 	Start uint   `json:"start"`
 	End   uint   `json:"end"`
+	//  That must be notified
+	ToNotify []Users.User
 }
+
 
 type Pad_info struct {
 	// ID of the pad
@@ -43,13 +49,24 @@ type Pad_info struct {
 
 // Append new update to slice in pad that keeps updates
 // that have happened to later inform client at request
-func (p *Pad_info) Add_update(v string, s, e uint) {
-	p.Updates = append(p.Updates, Pad_update{v, s, e})
+func (p *Pad_info) Add_update(v string, s, e uint ,toNotify []Users.User) {
+	p.Updates = append(p.Updates, Pad_update{v, s, e, toNotify})
 }
 
-// Free the updates slice of pad
+// Remove any updates that no user needs to be notified for
 func (p *Pad_info) Rmv_Updates() {
-	p.Updates = nil
+	tmp := p.Updates[:0]
+	for _ , u := range p.Updates{
+		if (len(u.ToNotify)>0){
+			tmp = append(tmp ,u)
+		}else{
+			fmt.Println("Notified all connected users about update:",u)
+		}
+	}
+
+	PadLock.Lock()
+	p.Updates = tmp
+	PadLock.Unlock()
 }
 
 /*
@@ -134,12 +151,19 @@ func CleanInactiveUsers() {
 		// if there are active users for this pad
 		if (len(tmp) > 0){
 			// save to map the slice that keeps all active users
+			PadLock.Lock()
+			
 			pad.Users = tmp
 			PadMap[padID] = pad
+			
+			PadLock.Unlock()
 		}else{
-			// must add a 
 			fmt.Println(time.Now() , "\nPad with Id:" , padID,"has no users connected to it, removed from mem")
+			PadLock.Lock()
+			
 			delete(PadMap , padID)
+			
+			PadLock.Unlock()
 		}
 	}
 }

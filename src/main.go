@@ -206,6 +206,7 @@ func serve_reqs() {
 func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 
 	// get pad from map
+	Pad.PadLock.Lock()
 	if pad, ok := Pad.PadMap[pad_id]; ok {
 		if req.OffsetFrom > uint(len(pad.Value)) || req.OffsetTo > uint(len(pad.Value)) {
 			fmt.Println("Value:",pad.Value, " Req_From:",  req.OffsetFrom,
@@ -217,7 +218,7 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 		pad.Value = pad.Value[:req.OffsetFrom] + req.Val + pad.Value[req.OffsetTo:]
 		
 		// add update to pad to inform client when it asks
-		pad.Updates = append(pad.Updates, Pad.Pad_update{req.Val, req.OffsetFrom, req.OffsetTo})
+		pad.Updates = append(pad.Updates, Pad.Pad_update{req.Val, req.OffsetFrom, req.OffsetTo , nil})
 
 		// signal that pad needs flushing to disk
 		pad.Needs_flushing = true
@@ -228,6 +229,7 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 		fmt.Println(Pad.PadMap)
 		er = errors.New("Could not find pad:" + pad_id)
 	}
+	Pad.PadLock.Unlock()
 
 	return
 }
@@ -237,11 +239,15 @@ func write_to_pad(pad_id string, req Requests.Editor_req) (er error) {
 	kept in the PadMap, update their file in disk
 */
 func write_to_pad_files() (er error) {
+
+	Pad.PadLock.Lock()
 	for _, pad := range Pad.PadMap {
 		if er = pad.Update_file(); er != nil {
 			fmt.Println("Error updating pad_file contents for ", pad.ID)
 			fmt.Println("\t------\n", er, "\t------\n")
 		}
 	}
+	Pad.PadLock.Unlock()
+
 	return
 }
