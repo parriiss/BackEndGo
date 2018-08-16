@@ -1,5 +1,11 @@
 {
-    "username"  : "root",
-    "password"  : "d3ns0ul3w",
-    "dbName"    : "onlineEditor"
+
+    "Database" : {
+        "name"      : "onlineEditor",
+        "user"      : "root",
+        "pass"      : "root"
+    },
+
+    "FilesDir" : "./SavedFiles/",
+    "ListeningPort" : 8080
 }

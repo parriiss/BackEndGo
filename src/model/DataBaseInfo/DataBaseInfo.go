@@ -9,31 +9,55 @@ import (
 
 //a struct to store the db info for log in
 type DataBaseInfo struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	DBName   string `json:"dbName"`
-	Ip       string `json:"ip"`
+	DBName   string `json:"name"`
+	Username string `json:"user"`
+	Password string `json:"pass"`
+}
+type DB struct {
+	DB DataBaseInfo `json:"DataBase"`
+}
+type Folder struct {
+	FilesDir string `json:"FilesDir"`
+}
+type ListenPort struct {
+	ListeningPort string `json:"ListeningPort"`
 }
 
 // a global instance of DataBaseInfo
-var DBInfo DataBaseInfo
+var DBInfo DB
+var FolderDir Folder
+var lport ListenPort
 
 /*
-	function to read from DBconfigFile 
+	function to read from DBconfigFile
 	json file the info of db
 */
 func LoadDBInfo() {
 	path := "./DBConfigFile"
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Println("Could not open ",path , err)
+		fmt.Println("Could not open ", path, err)
 		return
 	}
 	defer file.Close()
-	
 	bs, _ := ioutil.ReadAll(file)
 	json.Unmarshal(bs, &DBInfo)
-	fmt.Println("db info:" ,DBInfo)
+	fmt.Println("db info:", DBInfo)
+}
+
+func LoadFolderInfo() {
+	path := "./DBConfigFile"
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Println("Could not open ", path, err)
+		return
+	}
+	defer file.Close()
+
+	bs, _ := ioutil.ReadAll(file)
+	json.Unmarshal(bs, &lport)
+	json.Unmarshal(bs, &FolderDir)
+	fmt.Println("db info:", FolderDir)
 }
 
 /*
@@ -42,5 +66,5 @@ func LoadDBInfo() {
 	example :: sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/onlineEditor")
 */
 func DBLogInString() string {
-	return DBInfo.Username+ ":"+DBInfo.Password+"@/"+DBInfo.DBName
+	return DBInfo.DB.Username + ":" + DBInfo.DB.Password + "@/" + DBInfo.DB.DBName
 }
